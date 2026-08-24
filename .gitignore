@@ -1,0 +1,16 @@
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+
+# 依赖（tools/ 仅使用 Node 内置模块，暂无依赖，预防性忽略）
+node_modules/
+
+# 本地临时文件
+*.tmp
+*.bak

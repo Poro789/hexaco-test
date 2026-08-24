@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HEXACO 人格测试评分工具 —— 基于 HEXACO-PI-R 100 题版本，测量诚实-谦逊、情绪性、外向性、宜人性、尽责性、经验开放性六大维度。">
+    <title>HEXACO 人格测试</title>
+    <style>
+        :root {
+            --bg: #f7f7f4;
+            --surface: #ffffff;
+            --ink: #1c1c1a;
+            --muted: #6e6e66;
+            --faint: #9a9a90;
+            --hairline: #e7e7e1;
+            --hairline-strong: #d8d8d0;
+            --accent: #1c1c1a;
+            --accent-soft: #f0efe9;
+            --shadow: 0 1px 2px rgba(28, 28, 26, 0.04);
+
+            /* 六维配色：低饱和、明度接近，仅用于图表 */
+            --dim-h: #5b9a8b;
+            --dim-e: #b07c9e;
+            --dim-x: #c99a5b;
+            --dim-a: #8ca86b;
+            --dim-c: #6e8cb0;
+            --dim-o: #9080b5;
+
+            --font: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+            --r: 12px;
+            --r-sm: 8px;
+            --page-w: 720px;
+        }
+
+        [data-theme="dark"] {
+            --bg: #151517;
+            --surface: #1d1d20;
+            --ink: #eceae4;
+            --muted: #9c9c94;
+            --faint: #6f6f68;
+            --hairline: #2c2c30;
+            --hairline-strong: #3a3a3f;
+            --accent: #eceae4;
+            --accent-soft: #26262a;
+            --shadow: none;
+
+            --dim-h: #6fb3a3;
+            --dim-e: #c795b4;
+            --dim-x: #d9ac6f;
+            --dim-a: #a3bd82;
+            --dim-c: #85a3c7;
+            --dim-o: #a698cc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { height: 100%; }
+        body { height: 100dvh; overflow: hidden; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--ink);
+            line-height: 1.7;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color .35s ease, color .35s ease;
+        }
+
+        .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+        /* ---------- 主题切换按钮 ---------- */
+        .theme-toggle {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 50;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--hairline-strong);
+            background: var(--surface);
+            color: var(--muted);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: color .2s, border-color .2s, transform .2s;
+        }
+        .theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+        .theme-toggle svg { width: 18px; height: 18px; }
+        [data-theme="light"] .theme-toggle .moon { display: none; }
+        [data-theme="dark"] .theme-toggle .sun { display: none; }
+
+        /* ---------- 屏幕容器 ----------
+           每个屏是独立滚动容器：切屏 = 换容器，新容器天然从顶部开始，
+           滚动位置不跨屏残留，无需任何滚动补偿。 */
+        .screen { display: none; }
+        .screen.active {
+            display: block;
+            height: 100dvh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            animation: fade .45s ease;
+        }
+        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+        .wrap {
+            max-width: var(--page-w);
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* ---------- 欢迎页 ---------- */
+        /* 注意：必须写成 #welcome.active，否则 ID 选择器优先级会压过
+           .screen { display:none }，导致切屏后欢迎页仍然显示、挡住测试页 */
+        #welcome.active { display: grid; place-items: center; }
+        .welcome-inner { text-align: center; padding: 40px 0; }
+        .brand-mark {
+            font-size: .78rem; letter-spacing: .32em; text-transform: uppercase;
+            color: var(--faint); font-weight: 500; margin-bottom: 28px;
+        }
+        .welcome-title {
+            font-size: clamp(2.6rem, 9vw, 4.4rem);
+            font-weight: 300;
+            letter-spacing: .04em;
+            line-height: 1.05;
+            margin-bottom: 20px;
+        }
+        .welcome-title b { font-weight: 500; }
+        .welcome-sub { color: var(--muted); font-size: clamp(1rem, 3vw, 1.15rem); margin-bottom: 8px; }
+        .welcome-meta {
+            display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+            color: var(--faint); font-size: .85rem; margin: 22px 0 40px;
+        }
+        .welcome-meta span { position: relative; padding: 0 10px; }
+        .welcome-meta span::after {
+            content: ""; position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+            width: 1px; height: 12px; background: var(--hairline-strong);
+        }
+        .welcome-meta span:last-child::after { display: none; }
+
+        .btn {
+            font-family: inherit; font-size: 1rem; font-weight: 500;
+            border-radius: var(--r-sm); cursor: pointer;
+            padding: 14px 34px; border: 1px solid transparent;
+            transition: transform .15s ease, background-color .2s, color .2s, border-color .2s;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--accent); color: var(--bg); }
+        .btn-primary:hover { opacity: .88; }
+        .btn-ghost { background: transparent; color: var(--muted); border-color: var(--hairline-strong); }
+        .btn-ghost:hover { color: var(--ink); border-color: var(--ink); }
+
+        .welcome-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .resume-note { color: var(--faint); font-size: .85rem; margin-top: 18px; }
+
+        /* ---------- 顶部进度条 ---------- */
+        .topbar {
+            position: sticky; top: 0; z-index: 30;
+            background: color-mix(in srgb, var(--bg) 88%, transparent);
+            backdrop-filter: saturate(1.4) blur(8px);
+            border-bottom: 1px solid var(--hairline);
+        }
+        .topbar-inner {
+            max-width: var(--page-w); margin: 0 auto; padding: 14px 24px 12px;
+        }
+        .topbar-row {
+            display: flex; justify-content: flex-start; align-items: baseline;
+            font-size: .82rem; color: var(--muted); margin-bottom: 10px;
+            padding-right: 46px; /* 给右上角主题切换按钮让位 */
+        }
+        .topbar-row .count { color: var(--ink); font-weight: 500; }
+        .topbar-row .sep { color: var(--hairline-strong); margin: 0 8px; }
+        .progress-track { height: 2px; background: var(--hairline); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .4s cubic-bezier(.4,0,.2,1); }
+
+        /* ---------- 题目 ---------- */
+        #test .wrap { padding-top: 28px; padding-bottom: 120px; }
+
+        .question {
+            padding: 30px 4px;
+            border-bottom: 1px solid var(--hairline);
+            scroll-margin-top: 80px; /* 避开 sticky 顶栏 */
+        }
+        .question:last-of-type { border-bottom: none; }
+        .q-text {
+            font-size: 1.18rem; font-weight: 400; line-height: 1.6;
+            margin-bottom: 26px; color: var(--ink);
+            display: flex; gap: 12px;
+        }
+        .q-num {
+            flex-shrink: 0; color: var(--faint); font-weight: 500;
+            font-size: .95rem; min-width: 26px; padding-top: .18em;
+        }
+        .question.answered .q-num { color: var(--accent); }
+
+        /* Likert 五点量表 */
+        .scale {
+            position: relative;
+            display: flex; justify-content: space-between; align-items: center;
+            max-width: 460px; margin: 0 auto;
+            padding: 0 6px;
+        }
+        .scale::before {
+            content: ""; position: absolute; left: 22px; right: 22px; top: 50%;
+            height: 1px; background: var(--hairline-strong); transform: translateY(-50%);
+        }
+        .dot { position: relative; }
+        .dot input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+        .pip {
+            display: grid; place-items: center;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--surface);
+            border: 1.5px solid var(--hairline-strong);
+            color: transparent;
+            font-size: .78rem; font-weight: 600;
+            transition: all .18s ease;
+        }
+        .dot:hover .pip { border-color: var(--ink); }
+        .dot input:focus-visible + .pip { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .dot input:checked + .pip {
+            background: var(--accent); border-color: var(--accent);
+            color: var(--bg); transform: scale(1.12);
+        }
+        .scale-ends {
+            display: flex; justify-content: space-between;
+            max-width: 460px; margin: 12px auto 0;
+            font-size: .78rem; color: var(--faint);
+        }
+        .scale-picked {
+            text-align: center; margin-top: 10px; min-height: 1.2em;
+            font-size: .84rem; color: var(--muted);
+        }
+
+        /* ---------- 底部导航 ---------- */
+        .navbar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+            background: color-mix(in srgb, var(--bg) 90%, transparent);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid var(--hairline);
+        }
+        .navbar-inner {
+            max-width: var(--page-w); margin: 0 auto; padding: 14px 24px;
+            display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        }
+        .navbar .page-label { font-size: .82rem; color: var(--muted); }
+        .navbar .btn { padding: 11px 24px; font-size: .95rem; }
+        .navbar .btn:disabled { opacity: .35; cursor: not-allowed; }
+        .hint { font-size: .78rem; color: var(--faint); text-align: center; margin-top: 6px; }
+
+        /* ---------- 结果页 ---------- */
+        #result .wrap { padding-top: 56px; padding-bottom: 80px; }
+        .result-head { text-align: center; margin-bottom: 44px; }
+        .result-eyebrow {
+            font-size: .76rem; letter-spacing: .28em; text-transform: uppercase;
+            color: var(--faint); font-weight: 500; margin-bottom: 12px;
+        }
+        .result-title { font-size: clamp(1.8rem, 5vw, 2.4rem); font-weight: 300; letter-spacing: .02em; }
+        .result-time { color: var(--faint); font-size: .85rem; margin-top: 10px; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r);
+            box-shadow: var(--shadow);
+        }
+
+        .section-label {
+            font-size: .78rem; letter-spacing: .16em; text-transform: uppercase;
+            color: var(--faint); font-weight: 500;
+            margin: 0 0 16px 2px;
+        }
+
+        /* 雷达图 */
+        .radar-card { padding: 24px 20px 12px; margin-bottom: 40px; }
+        .radar-svg { display: block; width: 100%; height: auto; max-width: 460px; margin: 0 auto; }
+        .radar-grid { fill: none; stroke: var(--hairline); stroke-width: 1; }
+        .radar-axis { stroke: var(--hairline); stroke-width: 1; }
+        .radar-shape { fill: color-mix(in srgb, var(--ink) 8%, transparent); stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
+        .radar-vertex { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+        .radar-label { fill: var(--muted); font-size: 12px; font-weight: 500; }
+        .radar-label-score { fill: var(--ink); font-size: 12px; font-weight: 600; }
+
+        /* 条形对比 */
+        .bars-card { padding: 26px 24px; margin-bottom: 40px; }
+        .bar-row { display: grid; grid-template-columns: 96px 1fr 46px; align-items: center; gap: 14px; padding: 11px 0; }
+        .bar-row + .bar-row { border-top: 1px solid var(--hairline); }
+        .bar-name { font-size: .92rem; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+        .bar-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .bar-track { height: 6px; background: var(--hairline); border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 0; border-radius: 6px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+        .bar-val { text-align: right; font-size: .92rem; font-weight: 600; color: var(--ink); }
+
+        /* 详情卡片 */
+        .details { display: grid; gap: 16px; margin-bottom: 40px; }
+        .dim-card { padding: 22px 22px 18px; border-left: 3px solid var(--hairline-strong); }
+        .dim-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+        .dim-title { font-size: 1.05rem; font-weight: 500; }
+        .dim-score { font-size: 1.5rem; font-weight: 500; letter-spacing: .01em; }
+        .dim-score small { font-size: .8rem; color: var(--faint); font-weight: 400; }
+        .facets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 26px; }
+        @media (max-width: 520px) { .facets { grid-template-columns: 1fr; } }
+        .facet { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+        .facet-name { font-size: .88rem; color: var(--muted); }
+        .facet-score { font-size: .88rem; font-weight: 600; color: var(--ink); }
+        .facet-mini { grid-column: 1 / -1; height: 3px; background: var(--hairline); border-radius: 3px; overflow: hidden; }
+        .facet-mini i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .7s ease; }
+
+        /* 利他主义（居间量表） */
+        .altruism-card { padding: 22px; margin-bottom: 36px; border: 1px dashed var(--hairline-strong); background: var(--accent-soft); }
+        .altruism-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .altruism-head .t { font-size: 1rem; font-weight: 500; }
+        .altruism-head .s { font-size: 1.4rem; font-weight: 500; }
+        .altruism-card p { color: var(--muted); font-size: .88rem; line-height: 1.6; }
+
+        .note {
+            font-size: .84rem; color: var(--muted); line-height: 1.7;
+            padding: 18px 20px; border-radius: var(--r-sm);
+            background: var(--accent-soft); margin-bottom: 32px;
+        }
+        .note b { color: var(--ink); font-weight: 500; }
+
+        .result-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .result-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
+
+        footer { text-align: center; color: var(--faint); font-size: .8rem; padding: 40px 24px 48px; line-height: 1.8; }
+        footer .disclaimer { font-style: italic; }
+
+        /* 复制成功提示 */
+        .toast {
+            position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--ink); color: var(--bg); padding: 11px 22px; border-radius: 999px;
+            font-size: .88rem; opacity: 0; pointer-events: none; transition: all .3s ease; z-index: 60;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* 隐藏的测试模式面板 */
+        .dev-panel {
+            position: fixed; left: 16px; bottom: 16px; z-index: 80; width: 236px;
+            background: var(--surface); border: 1px solid var(--hairline-strong);
+            border-radius: var(--r-sm); box-shadow: 0 10px 34px rgba(0,0,0,.16);
+            padding: 12px 12px 10px; font-size: .85rem;
+            opacity: 0; transform: translateY(10px); pointer-events: none; transition: all .2s ease;
+        }
+        .dev-panel.show { opacity: 1; transform: none; pointer-events: auto; }
+        .dev-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+        .dev-close { border: none; background: none; color: var(--muted); font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+        .dev-close:hover { color: var(--ink); }
+        .dev-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .dev-grid button {
+            font-family: inherit; font-size: .82rem; padding: 8px 4px; cursor: pointer;
+            border: 1px solid var(--hairline-strong); background: var(--bg); color: var(--ink);
+            border-radius: 6px; transition: border-color .15s, color .15s;
+        }
+        .dev-grid button:hover { border-color: var(--ink); }
+        .dev-grid button.wide { grid-column: 1 / -1; }
+        .dev-note { color: var(--faint); font-size: .72rem; line-height: 1.5; margin-top: 10px; }
+
+
+        /* PDF 报告（仅打印时可见） */
+        #printReport { display: none; }
+        @media print {
+            @page { margin: 18mm 16mm; }
+            html, body { height: auto !important; overflow: visible !important; }
+            body { background: #fff !important; color: #000 !important; }
+            .screen, .theme-toggle, .topbar, .navbar, .toast, .dev-panel { display: none !important; }
+            #printReport { display: block; font-family: var(--font); color: #111; font-size: 10.5pt; line-height: 1.75; }
+            #printReport h1 { font-size: 17pt; font-weight: 500; margin-bottom: 2pt; }
+            #printReport .pr-sub { color: #666; font-size: 9pt; margin-bottom: 14pt; }
+            #printReport h2 { font-size: 12.5pt; font-weight: 600; margin: 16pt 0 6pt; border-bottom: 1pt solid #ddd; padding-bottom: 3pt; break-after: avoid; }
+            #printReport table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; }
+            #printReport th, #printReport td { border: .5pt solid #ccc; padding: 4pt 7pt; text-align: left; font-size: 9.5pt; }
+            #printReport th { background: #f3f3f0; font-weight: 600; }
+            #printReport td.num { text-align: right; font-variant-numeric: tabular-nums; width: 44pt; }
+            #printReport .pr-domain { break-inside: avoid; margin-bottom: 12pt; }
+            #printReport .pr-domain h3 { font-size: 11pt; font-weight: 600; margin-bottom: 2pt; break-after: avoid; }
+            #printReport .pr-domain h3 small { color: #666; font-weight: 400; font-size: 8.5pt; }
+            #printReport .pr-desc { color: #333; margin-bottom: 4pt; }
+            #printReport ul { margin: 0 0 0 14pt; padding: 0; }
+            #printReport li { margin-bottom: 3pt; }
+            #printReport li b { font-weight: 600; }
+            #printReport .pr-note { margin-top: 14pt; font-size: 8.5pt; color: #666; border-top: .5pt solid #ddd; padding-top: 6pt; }
+            #printReport li { break-inside: avoid; }
+            #printReport .pr-keep { break-inside: avoid; }
+        }
+
+        @media (max-width: 600px) {
+            .wrap { padding: 0 18px; }
+            .topbar-inner { padding-right: 70px; } /* 进度条给右上角主题按钮让位 */
+            .bar-row {
+                grid-template-columns: 1fr auto;
+                grid-template-areas: "name val" "track track";
+                gap: 8px 10px;
+            }
+            .bar-name { grid-area: name; white-space: nowrap; }
+            .bar-val { grid-area: val; }
+            .bar-track { grid-area: track; }
+            .q-text { font-size: 1.08rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换深色/浅色模式" title="切换主题">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+
+    <!-- 欢迎页 -->
+    <section class="screen active" id="welcome">
+        <div class="wrap welcome-inner">
+            <p class="brand-mark" id="brandMark">HEXACO · PI-R</p>
+            <h1 class="welcome-title">六维<b>人格</b>测试</h1>
+            <p class="welcome-sub">用 <span id="welcomeCount">100</span> 道题，看清你的六个侧面</p>
+            <div class="welcome-meta">
+                <span>约 20 分钟</span><span>完全离线</span><span>数据不出本机</span>
+            </div>
+            <div class="welcome-actions" id="welcomeActions">
+                <button class="btn btn-primary" id="startBtn">开始测试</button>
+            </div>
+            <p class="resume-note" id="resumeNote" style="display:none"></p>
+            <p class="resume-note">作答自动暂存、可续答（视浏览器环境）<br>长期留存请使用结果页导出</p>
+        </div>
+    </section>
+
+    <!-- 答题页 -->
+    <section class="screen" id="test">
+        <div class="topbar">
+            <div class="topbar-inner">
+                <div class="topbar-row">
+                    <span>第 <span id="curPage">1</span> / <span id="totalPages">20</span> 页<span class="sep">·</span>已完成 <span class="count" id="answeredCount">0</span> / <span id="totalCount">100</span></span>
+                </div>
+                <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            </div>
+        </div>
+        <div class="wrap">
+            <div id="questionList"></div>
+        </div>
+        <div class="navbar">
+            <div>
+                <div class="navbar-inner" style="padding-bottom:6px">
+                    <button class="btn btn-ghost" id="prevBtn">上一页</button>
+                    <span class="page-label" id="pageLabel">第 1 / 20 页</span>
+                    <button class="btn btn-primary" id="nextBtn">下一页</button>
+                </div>
+                <p class="hint" id="navHint">选择后自动滚到下一题 · 可随时返回修改</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 结果页 -->
+    <section class="screen" id="result">
+        <div class="wrap" id="resultBody">
+            <div class="result-head">
+                <p class="result-eyebrow">Your Profile</p>
+                <h2 class="result-title">你的六维人格画像</h2>
+                <p class="result-time" id="resultTime"></p>
+            </div>
+
+            <div class="card radar-card">
+                <p class="section-label">六大领域总览</p>
+                <div id="radarMount"></div>
+            </div>
+
+            <div class="card bars-card">
+                <p class="section-label">各领域得分对比</p>
+                <div id="barsMount"></div>
+            </div>
+
+            <p class="section-label" style="margin-left:2px">领域与侧面详情</p>
+            <div class="details" id="detailsMount"></div>
+
+            <div class="card altruism-card" id="altruismMount"></div>
+
+            <div class="note">
+                <b>关于分数：</b>各领域与侧面均为 1–5 分，分数越高表示该特质越明显；分数只是原始计算结果，不含任何分析或价值判断。计分依据 HEXACO-PI-R 评分手册，反向计分题目已按规则处理。本工具不能替代专业心理评估。
+            </div>
+
+            <div class="result-actions">
+                <button class="btn btn-ghost" id="saveImageBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                    保存为图片
+                </button>
+                <button class="btn btn-ghost" id="pdfBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                    导出 PDF 报告
+                </button>
+                <button class="btn btn-ghost" id="copyBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    复制文字
+                </button>
+                <button class="btn btn-ghost" id="restartBtn">重新测试</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>基于 HEXACO-PI-R 100 题量表 · 数据仅保存在你的浏览器本地</p>
+            <p class="disclaimer">本工具不能替代专业的心理评估</p>
+        </footer>
+    </section>
+
+    <div id="printReport"></div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    /* ============================================================
+       HEXACO 人格测试 —— 数据与评分
+       题目顺序、评分键、反向计分项、利他项均与官方 HEXACO-PI-R 评分手册逐位一致。
+       ------------------------------------------------------------
+       目录：
+         1. 内置题本与评分键（兜底快照；可被外部 CSV 覆盖）
+         2. 中文标签与说明文案
+         3. CONFIG 模板参数
+         4. 外部题本（CSV 解析 / 校验 / 应用 / 加载）
+         5. 状态与本地存储（含施测计时）
+         6. 主题与屏幕切换
+         7. 欢迎页
+         8. 渲染与导航
+         9. 计分
+         10. 结果渲染
+         11. 导出（PNG / PDF / 复制文字）
+         12. Toast
+         13. Dev 测试模式
+         14. 启动
+       ============================================================ */
+
+    /* ---------- 1. 内置题本与评分键 ----------
+       内置题本是“兜底快照”：双击打开（file://）或外部 CSV 无法读取/校验时
+       使用内置题本。要改题本请优先编辑同目录的 HEXACO_items.csv（见 README）。 */
+    let questions = [
+        "我觉得参观美术馆很无聊。","我经常清理自己的办公室或居家环境。","我很少有怨恨，即使面对那些对我很坏的人。","整体而言我对自己还算满意。","如果我必须在恶劣气候下出行，我会感到害怕。","如果需要求助于一个我讨厌的人，我会克制情绪，对他表现得客客气气。","我喜欢去学习外国的历史和政治。","当工作时，我通常会为自己订下规模宏大的目标。","有时候其他人告诉我，我对别人太挑剔。","在团体讨论中，我很少表达自己的意见。","在一些时候，我会不由自主地为一些小事而感到焦躁不安。","如果知道自己永远不会被抓，我会愿意去偷一百万美元。","我喜欢做遵照惯例、简单重复的工作，而不是需要创意的工作。","为了找出任何可能的错误，我会反复检查自己的工作。","有时候其他人认为我太顽固。","我常常会避免跟其他人闲聊。","当我遭遇到痛苦的经历时，我需要其他人的安慰。","对我来说，拥有很多金钱不是特别重要。","我认为去关注那些激进的观念是在浪费时间。","我在做决定的时候常常依赖自己当时的感受，而不会去仔细思考和比较得失。","别人认为我是一个很暴躁的人。","几乎所有时候我都精力充沛。","看到别人哭时，我也会想哭。","我认为自己是个普普通通的人，并不比其他人优秀。","我不愿花时间去阅读诗集。","我会在事前计划和组织要做的事，避免最后一分钟手忙脚乱。","面对那些对我很坏的人，我的态度通常是‘原谅与忘记’。","我认为大多数人喜爱我的某些个性。","我不介意去做一些有危险性的工作。","即便讨好奉迎能让我获得晋升或奖励，我也拒绝这样做。","我喜欢看不同地方的地图。","为了达到目标，我通常把自己逼得很紧。","我通常会接受别人所犯的错误，而不会抱怨他们。","在社交场合里，我通常都是那个先主动搭讪的人。","比起大多数人，我担心的事少了很多。","如果经济拮据，我可能会经受不住诱惑去购买赃物。","我喜欢从事艺术创作，例如，写小说、写歌、绘画。","做事时，我往往不太注意小细节。","当别人不同意我的时候，我通常能让自己的意见保持相当的弹性。","我喜欢一群人聚在一起闲聊。","我可以面对困难的处境而不需要任何人的情感支持。","我希望能够住在一个很昂贵而且很高级的社区。","我喜欢那些对事情有独特见解的人。","我因采取行动前没有仔细思考而犯下很多错误。","即使别人对待我很差，我也很少生气。","大多数日子里，我都感到愉快和乐观。","当与我很亲近的人不开心的时候，我往往会感同身受。","我不想要别人对待我的方式好像我比他们优秀。","如果我有机会，我会想去参加古典音乐会。","别人时常取笑我房间或桌子凌乱。","如果有人欺骗过我一次，我以后都会怀疑这人。","我觉得自己是个不受欢迎的人。","面对可能使身体受伤的险境，我会很害怕。","为了达成目的，即使对方讲了很烂的笑话，我也会赔笑奉迎。","我觉得关于科学史和科技史的书都很无趣。","我为自己定下的目标，常常最后未完成就放弃。","我会用宽厚的态度去评论他人。","在团体中，我常是那个代表团体说话的人。","我很少因为压力或忧虑而失眠。","即使很有价值或金额很大，我也绝不会接受贿赂。","别人经常说我有很好的想象力。","为了在工作上精益求精，我会不惜花费很多时间。","当别人说我错了的时候，通常我的第一个反应就是跟他们争辩。","比起一个人闷头苦干，我更喜欢需要频繁跟人打交道的工作。","每当我忧心某些事，我总想跟别人说说自己的忧虑。","我想让别人看到我开着名贵的轿车。","我觉得自己算是一个有点古怪的人。","我不会因为冲动而做出不理智的行为。","大多数的人比我容易生气。","别人常常对我说，我应该试着快乐起来。","当亲近的人要离开一段很长的时间，我会有很深的感伤。","我认为我比一般人更有资格得到更多尊重。","有时候，我喜欢静静地看着微风拂动树叶。","在工作上，我有时候会因为没有事先进行很好的计划而遇到困难。","我发觉很难完全原谅曾对我刻薄的人。","我有时会觉得自己一文不值。","即使面对危急情况，我不会感觉到惊慌。","我极为反感为了让别人帮我做事而假装喜欢对方。","翻阅百科全书这件事，我从没真正喜欢过。","在工作上，我基本上是能混就混，只要能交差就行。","即使在别人犯了很多错误的时候，我也很少说难听的话。","在一群人面前说话，我会感到非常不自然。","在等待一些重大决定的结果时，我会变得非常焦躁。","如果我确定绝不会被抓到，我会禁不住诱惑使用伪钞。","我不认为自己是那种有艺术天赋或创意的人。","别人常说我是个完美主义者。","当我坚信自己是正确的时候，我发觉自己很难去跟人妥协。","通常我到新环境做的第一件事就是交新朋友。","我很少跟别人讨论自己的问题。","如果有机会可以拥有昂贵的奢侈品，我会获得很大的快乐。","我发觉讨论哲学很乏味。","我喜欢想到什么就做什么，不喜欢按计划行事。","当有人侮辱我时，我发觉很难去控制自己的脾气。","大多数人都比平常的我要更乐观和更有活力。","即使在会让大多数人变得很感伤的情境中，我仍可不动情感。","我想让别人知道我是个地位高的重要人物。","我会同情那些比我不幸的人。","我会慷慨地为那些有需要的人提供帮助。","伤害一个我讨厌的人，我心里毫无波澜。","别人觉得我是个硬心肠的人。"
+    ];
+
+    let scoringKeys = {
+        "Honesty-Humility": { "Sincerity": [6,30,54,78], "Fairness": [12,36,60,84], "Greed-Avoidance": [18,42,66,90], "Modesty": [24,48,72,96] },
+        "Emotionality":     { "Fearfulness": [5,29,53,77], "Anxiety": [11,35,59,83], "Dependence": [17,41,65,89], "Sentimentality": [23,47,71,95] },
+        "Extraversion":     { "Social Self-Esteem": [4,28,52,76], "Social Boldness": [10,34,58,82], "Sociability": [16,40,64,88], "Liveliness": [22,46,70,94] },
+        "Agreeableness":    { "Forgiveness": [3,27,51,75], "Gentleness": [9,33,57,81], "Flexibility": [15,39,63,87], "Patience": [21,45,69,93] },
+        "Conscientiousness":{ "Organization": [2,26,50,74], "Diligence": [8,32,56,80], "Perfectionism": [14,38,62,86], "Prudence": [20,44,68,92] },
+        "Openness to Experience": { "Aesthetic Appreciation": [1,25,49,73], "Inquisitiveness": [7,31,55,79], "Creativity": [13,37,61,85], "Unconventionality": [19,43,67,91] }
+    };
+
+    let reverseScoredItems = [6,12,36,42,54,66,72,84,90,96,10,16,29,35,41,52,59,70,76,77,82,89,94,95,9,15,21,51,63,75,87,93,20,38,44,50,56,74,80,92,1,13,19,25,55,79,85,91,99,100];
+    let reverseSet = new Set(reverseScoredItems);
+    let altruismItems = [97,98,99,100];
+
+    /* 规范顺序（内置快照定义）：外部题本重建时保证展示顺序与内置一致 */
+    const FACTOR_ORDER = Object.keys(scoringKeys);
+    const FACET_ORDER = Object.fromEntries(FACTOR_ORDER.map(f => [f, Object.keys(scoringKeys[f])]));
+
+    /* 题号 → 所属维度（含利他），供 dev 梯度填充使用；题本变化时重建 */
+    let itemFactor = {};
+    function buildItemFactor() {
+        itemFactor = {};
+        for (const [f, facets] of Object.entries(scoringKeys))
+            for (const items of Object.values(facets))
+                items.forEach(it => { itemFactor[it] = f; });
+        altruismItems.forEach(it => { itemFactor[it] = 'altruism'; });
+    }
+    buildItemFactor();
+
+    /* ---------- 2. 中文标签与说明文案 ---------- */
+    const factorZh = {
+        "Honesty-Humility": "诚实-谦逊", "Emotionality": "情绪性", "Extraversion": "外向性",
+        "Agreeableness": "宜人性", "Conscientiousness": "尽责性", "Openness to Experience": "经验开放性"
+    };
+    const factorAbbr = {
+        "Honesty-Humility": "诚谦", "Emotionality": "情绪", "Extraversion": "外向",
+        "Agreeableness": "宜人", "Conscientiousness": "尽责", "Openness to Experience": "开放"
+    };
+    const factorVar = {
+        "Honesty-Humility": "--dim-h", "Emotionality": "--dim-e", "Extraversion": "--dim-x",
+        "Agreeableness": "--dim-a", "Conscientiousness": "--dim-c", "Openness to Experience": "--dim-o"
+    };
+    const facetZh = {
+        'Sincerity':'真诚性','Fairness':'公平性','Greed-Avoidance':'贪婪回避','Modesty':'谦虚性',
+        'Fearfulness':'恐惧性','Anxiety':'焦虑性','Dependence':'依赖性','Sentimentality':'感伤性',
+        'Social Self-Esteem':'社交自尊','Social Boldness':'社交大胆','Sociability':'社交性','Liveliness':'活力性',
+        'Forgiveness':'宽恕性','Gentleness':'温和性','Flexibility':'灵活性','Patience':'耐心',
+        'Organization':'条理性','Diligence':'勤勉性','Perfectionism':'完美主义','Prudence':'审慎性',
+        'Aesthetic Appreciation':'审美欣赏','Inquisitiveness':'求知欲','Creativity':'创造性','Unconventionality':'非传统性'
+    };
+
+    /* 一句话说明（依据 Lee & Ashton 官方量表描述译写，仅描述测量内容，不含价值判断） */
+    const factorDesc = {
+        "Honesty-Humility": "衡量真诚待人、不愿操纵他人、不受物质诱惑、不自视高人一等的倾向；低分者会为得利而奉承、易受金钱驱动并自觉重要。",
+        "Emotionality": "衡量对身体危险的恐惧、对生活压力的焦虑、对情感支持的需要以及与他人的共情联结；低分者情感上更独立超然。",
+        "Extraversion": "衡量社交中的积极自我感受、当众发言与领导的自信、对社交活动的喜爱以及乐观与活力；低分者更偏好独处、自感平淡。",
+        "Agreeableness": "衡量宽恕他人过错、评价宽厚、愿意妥协合作以及不易动怒的倾向（其对立面为愤怒）；低分者易记仇、固执、易怒。",
+        "Conscientiousness": "衡量对时间与环境的条理安排、自律勤勉、追求精确以及审慎决策的倾向；低分者行事随性、容忍差错、易凭冲动决定。",
+        "Openness to Experience": "衡量对艺术与自然之美的沉浸、对各领域知识的好奇、想象力的运用以及对新奇观念与人物的接纳；低分者对此兴趣较淡。"
+    };
+    const facetDesc = {
+        'Sincerity': '人际交往中真诚的程度；低分者会为获得好处而奉承或假意讨好，高分者不愿以此操纵他人。',
+        'Fairness': '避免欺诈与舞弊的倾向；低分者愿意通过欺骗或偷窃获利，高分者不占他人或社会的便宜。',
+        'Greed-Avoidance': '对奢华财富、名贵物品与身份象征不感兴趣的倾向；低分者渴望享受并展示财富与地位。',
+        'Modesty': '谦虚低调的倾向；低分者自视优越、认为应享特权，高分者视自己为无需特殊对待的普通人。',
+        'Fearfulness': '体验恐惧的倾向；低分者不惧身体伤害、较为坚韧，高分者强烈回避身体风险。',
+        'Anxiety': '在各种情境中担忧的倾向；低分者面对困难压力不大，高分者易为较小的问题萦怀。',
+        'Dependence': '对他人情感支持的需要；低分者自信能独立解决问题，高分者希望与人分担并获得鼓励安慰。',
+        'Sentimentality': '与他人形成强烈情感联结的倾向；低分者对离别与他人处境少有触动，高分者重感情、能共情他人感受。',
+        'Social Self-Esteem': '社交情境中的积极自我评价；低分者常觉得自己无足轻重、不受欢迎，高分者对自己满意、认为自己有招人喜欢之处。',
+        'Social Boldness': '各类社交场合中的自在与胆识；低分者在领导或当众发言时感到羞怯，高分者敢于接近陌生人、乐于在群体中发声。',
+        'Sociability': '喜爱交谈、社交与聚会的程度；低分者偏好独自活动、不主动寻求交谈。',
+        'Liveliness': '日常的热情与精力；低分者不常感到兴致高昂，高分者通常乐观、精神振奋。',
+        'Forgiveness': '对曾伤害自己的人重新信任并恢复善意的意愿；低分者容易记仇，高分者受了委屈也愿意重修旧好。',
+        'Gentleness': '待人温和宽厚的倾向；低分者对他人评价苛刻，高分者不愿严厉论断别人。',
+        'Flexibility': '妥协与合作的意愿；低分者固执己见、乐于争辩，高分者会迁就他人的建议以避免争执。',
+        'Patience': '保持冷静而非动怒的倾向；低分者容易发脾气，高分者忍耐阈限较高。',
+        'Organization': '追求秩序（尤其是环境整洁）的倾向；低分者杂乱随意，高分者做事井井有条。',
+        'Diligence': '努力工作的倾向；低分者缺乏自律、成就动机不强，高分者有很强的进取心并愿意付出。',
+        'Perfectionism': '注重细节、力求完善的倾向；低分者能容忍工作中的差错，高分者会反复检查错误与改进空间。',
+        'Prudence': '深思熟虑、克制冲动的倾向；低分者凭冲动行事、少考虑后果，高分者谨慎自制。',
+        'Aesthetic Appreciation': '对艺术与自然之美的欣赏与沉浸；低分者对多数艺术作品与自然景观兴趣不大。',
+        'Inquisitiveness': '对自然与人文世界的好奇与探索；低分者求知欲较弱，高分者阅读广泛、喜爱游历见闻。',
+        'Creativity': '偏好创新与尝试的程度；低分者少有原创想法，高分者主动寻求新解法并借艺术表达自我。',
+        'Unconventionality': '接纳不寻常事物的倾向；低分者回避标新立异者，高分者乐于接受看似奇特或激进的观点。'
+    };
+    const altruismDesc = '衡量同情弱者、心肠柔软的倾向；低分者不介意伤害他人、显得铁石心肠，高分者避免造成伤害、乐于慷慨助人。此为居间量表，居于诚实-谦逊、情绪性与宜人性之间，独立于六大领域计分。';
+
+    /* ============================================================
+       官方 Scale Descriptions 完整中译（逐句对译，不精简；仅用于 PDF 报告）
+       译自 Lee & Ashton, hexaco.org
+       ============================================================ */
+    const factorFull = {
+        "Honesty-Humility": "在诚实-谦逊量表上得分很高的人不会为个人利益而操纵他人，很少受到违反规则的诱惑，对奢华的财富与享受不感兴趣，也不觉得自己有资格享有更高的社会地位。相反，在此量表上得分很低的人会为达到目的而奉承他人，倾向于为个人利益而违反规则，受物质利益驱动，并怀有强烈的自我重要感。",
+        "Emotionality": "在情绪性量表上得分很高的人会对身体危险感到恐惧，面对生活中的压力会体验到焦虑，需要来自他人的情感支持，并与他人产生共情与深厚的情感联结。相反，在此量表上得分很低的人不会因可能受到身体伤害而却步，即使处于压力情境也少有担忧，几乎不需要与他人分担自己的忧虑，与他人在情感上保持疏离。",
+        "Extraversion": "在外向性量表上得分很高的人对自己感觉良好，在带领群体或面向众人讲话时充满自信，喜爱社交聚会与人际互动，并常体验到热情与活力等积极感受。相反，在此量表上得分很低的人认为自己不受欢迎，成为社交关注的焦点时会感到别扭，对社交活动漠不关心，也不像他人那样感到有活力和乐观。",
+        "Agreeableness": "在宜人性量表上得分很高的人会原谅自己遭受的委屈，评判他人时较为宽厚，愿意与他人妥协合作，并能轻松控制自己的脾气。相反，在此量表上得分很低的人会对伤害过自己的人怀恨在心，对他人的缺点相当挑剔，固执地捍卫自己的观点，遭受不当对待时很快便会感到愤怒。",
+        "Conscientiousness": "在尽责性量表上得分很高的人会安排好自己的时间与身边的环境，以自律的方式朝目标努力，在任务中力求准确与完美，做决定时会仔细斟酌。相反，在此量表上得分很低的人往往不在意环境或日程是否有序，回避困难的任务或具有挑战性的目标，对含有一些差错的工作也能感到满意，凭冲动或很少经过思考便做出决定。",
+        "Openness to Experience": "在经验开放性量表上得分很高的人会沉浸于艺术与自然之美，对各种知识领域怀有好奇心，在日常生活中自由地运用想象力，并对不寻常的观念或人物抱有兴趣。相反，在此量表上得分很低的人对多数艺术作品无动于衷，缺乏求知的兴趣，回避创造性活动，对看似激进或非传统的观念也少有兴趣。"
+    };
+    const factorNoteZh = { "Agreeableness": "（对立面：愤怒）" };
+    const facetFull = {
+        'Sincerity': '真诚性量表评估在人际关系中真诚待人的倾向。低分者会为获得好处而奉承他人或假装喜欢对方，而高分者不愿以此操纵他人。',
+        'Fairness': '公平性量表评估避免欺诈与腐败的倾向。低分者愿意通过欺骗或偷窃获利，而高分者不愿占其他个人乃至整个社会的便宜。',
+        'Greed-Avoidance': '贪婪回避量表评估对拥有奢华财富、名贵物品及高社会地位象征不感兴趣的倾向。低分者想要享受并展示财富与特权，而高分者不会特别为金钱或社会地位的考量所驱动。',
+        'Modesty': '谦虚性量表评估谦虚低调、不事张扬的倾向。低分者认为自己高人一等、应享有他人所没有的特权，而高分者把自己看作普通人，不要求任何特殊对待。',
+        'Fearfulness': '恐惧性量表评估体验恐惧的倾向。低分者很少害怕受伤，相对坚韧、勇敢、对身体疼痛不敏感，而高分者强烈倾向于回避身体伤害。',
+        'Anxiety': '焦虑性量表评估在各种情境中担忧的倾向。低分者面对困难时压力不大，而高分者往往连相对较小的问题也会萦绕于心。',
+        'Dependence': '依赖性量表评估一个人对他人情感支持的需要。低分者自信、能够在没有任何帮助或建议的情况下独自处理问题，而高分者希望与能给予鼓励和安慰的人分担自己的困难。',
+        'Sentimentality': '感伤性量表评估与他人形成强烈情感纽带的倾向。低分者在道别时或面对他人的忧虑时少有情绪波动，而高分者怀有强烈的情感依恋，并对他人的感受具有共情的敏感性。',
+        'Social Self-Esteem': '社交自尊量表评估积极自我评价的倾向，尤其是在社交情境中。低分者往往怀有个人无价值感、认为自己不受欢迎，而高分者通常对自己感到满意，认为自己具有招人喜欢的品质。',
+        'Social Boldness': '社交大胆量表评估在各类社交情境中的自在或自信程度。低分者在担任领导角色或公开讲话时感到羞怯或别扭，而高分者愿意接近陌生人，并愿意在群体场合中发言。',
+        'Sociability': '社交性量表评估喜爱交谈、社交互动与聚会的倾向。低分者通常偏好独自进行的活动、不主动寻求交谈，而高分者喜欢与人交谈、走访和欢聚。',
+        'Liveliness': '活力性量表评估一个人平时的热情与精力。低分者不常感到特别开朗或干劲十足，而高分者通常体验到乐观向上与高昂的兴致。',
+        'Forgiveness': '宽恕性量表评估对可能伤害过自己的人重新产生信任与好感的意愿。低分者往往对冒犯过自己的人"怀恨在心"，而高分者通常在遭受不好的对待后，仍愿意再次信任对方并恢复友好关系。',
+        'Gentleness': '温和性量表评估与人相处时温和宽厚的倾向。低分者在评价他人时容易苛刻，而高分者不愿严厉地论断别人。',
+        'Flexibility': '灵活性量表评估妥协与合作的意愿。低分者被视为固执且乐于争辩，而高分者回避争执、愿意迁就他人的建议，即使这些建议可能并不合理。',
+        'Patience': '耐心量表评估保持冷静而非发怒的倾向。低分者容易很快发脾气，而高分者感受或表达愤怒的阈限较高。',
+        'Organization': '条理性量表评估追求秩序的倾向，尤其体现在物理环境方面。低分者往往杂乱无章、做事随意，而高分者保持物品整洁，偏好有条理的做事方式。',
+        'Diligence': '勤勉性量表评估努力工作的倾向。低分者缺乏自律、成就动机不强，而高分者具有强烈的进取心，愿意为之全力付出。',
+        'Perfectionism': '完美主义量表评估细致周到、关注细节的倾向。低分者能容忍工作中的一些差错、往往忽视细节，而高分者会仔细检查错误与可改进之处。',
+        'Prudence': '审慎性量表评估深思熟虑、抑制冲动的倾向。低分者凭冲动行事、不大考虑后果，而高分者会仔细权衡各种选项，倾向于谨慎与自制。',
+        'Aesthetic Appreciation': '审美欣赏量表评估对艺术之美与自然之美的享受。低分者不易沉浸于艺术作品或自然奇观，而高分者对各种艺术形式与自然奇观怀有强烈的欣赏之情。',
+        'Inquisitiveness': '求知欲量表评估寻求关于自然与人文世界的信息和体验的倾向。低分者对自然科学或社会科学缺乏好奇心，而高分者阅读广泛，并对旅行见闻抱有兴趣。',
+        'Creativity': '创造性量表评估对创新与尝试的偏好。低分者少有原创性思考的意愿，而高分者会主动寻求解决问题的新方法，并借助艺术来表达自我。',
+        'Unconventionality': '非传统性量表评估接纳不寻常事物的倾向。低分者回避古怪或不合流俗的人，而高分者乐于接受看似奇怪或激进的观念。'
+    };
+    const altruismFull = '利他主义（对立面：敌对）量表评估对他人抱有同情心、心肠柔软的倾向。低分者不会因可能伤害他人而感到不安，可能被看作铁石心肠；而高分者避免造成伤害，并对弱者或需要帮助的人报以慷慨。该量表为居间量表（Interstitial Scale），其内容居于诚实-谦逊、情绪性与宜人性三个领域之间；按评分手册，其题目不计入六大领域的因素分。';
+    const optionLabels = ["极不同意","不大同意","没有意见","基本同意","非常同意"];
+
+    /* ============================================================
+       CONFIG —— 模板化参数区（六件套通用，换测试改这里）
+       ============================================================ */
+    const CONFIG = {
+        toolId: 'HEXACO-PI-R-100-zh',
+        toolName: 'HEXACO 人格测试',
+        toolVersion: '1.0',
+        filePrefix: 'HEXACO',
+        storagePrefix: 'hexaco',
+        /* 外部题本 CSV（与 HTML 同目录；需 http 方式打开才生效，见 README） */
+        itemsCsv: 'HEXACO_items.csv',
+        likertPoints: 5,
+        likertLabels: optionLabels,
+        anchorLow: '极不同意',
+        anchorHigh: '非常同意',
+        perPage: 5,
+        /* dev 后门梯度模式的各量表目标均值；缺省时 dev 面板退化为正态填充 */
+        devGradientTargets: {
+            'Honesty-Humility': 1.5, 'Emotionality': 2.2, 'Extraversion': 3.0,
+            'Agreeableness': 3.6, 'Conscientiousness': 4.2, 'Openness to Experience': 4.8,
+            'altruism': 3.4
+        }
+    };
+
+    /* ============================================================
+       4. 外部题本（CSV 解析 / 校验 / 应用 / 加载）
+       题本文件 schema（UTF-8 带 BOM，Excel 可直接编辑）：
+         题号,题目,领域,侧面,反向计分
+       领域/侧面可用中文或英文名；反向计分 0/1；固定 100 行。
+       加载优先级：同目录 CSV（需 http 打开）> dev 导入（localStorage）> 内置题本。
+       ============================================================ */
+    const ITEMS_CSV_KEY = CONFIG.storagePrefix + '_items_csv_v1';
+    const CSV_HEADER = ['题号', '题目', '领域', '侧面', '反向计分'];
+
+    /* 领域/侧面的中英文别名表（由内置快照生成，CSV 两式皆认） */
+    const factorAlias = {};
+    FACTOR_ORDER.forEach(f => { factorAlias[f] = f; factorAlias[factorZh[f]] = f; });
+    factorAlias['altruism'] = 'altruism';
+    factorAlias['Altruism'] = 'altruism';
+    factorAlias['利他主义'] = 'altruism';
+    const facetAlias = {};
+    FACTOR_ORDER.forEach(f => Object.keys(scoringKeys[f]).forEach(fa => {
+        facetAlias[f + '\u0000' + fa] = fa;
+        facetAlias[f + '\u0000' + facetZh[fa]] = fa;
+    }));
+    facetAlias['altruism\u0000Altruism'] = 'Altruism';
+    facetAlias['altruism\u0000利他主义'] = 'Altruism';
+
+    /* 极简 RFC4180 解析：支持引号包裹、""转义、CRLF/CR/LF、BOM */
+    function parseCsvText(text) {
+        text = text.replace(/^\uFEFF/, '');
+        const rows = []; let row = []; let cur = ''; let inQ = false;
+        const pushRow = () => { row.push(cur); cur = ''; rows.push(row); row = []; };
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (inQ) {
+                if (ch === '"') {
+                    if (text[i + 1] === '"') { cur += '"'; i++; }
+                    else inQ = false;
+                } else cur += ch;
+            } else if (ch === '"') inQ = true;
+            else if (ch === ',') { row.push(cur); cur = ''; }
+            else if (ch === '\n') pushRow();
+            else if (ch === '\r') { if (text[i + 1] !== '\n') pushRow(); }
+            else cur += ch;
+        }
+        if (cur.length || row.length) pushRow();
+        return rows.filter(r => !(r.length === 1 && r[0].trim() === ''));
+    }
+
+    /* 解析并严格校验题本；成功返回 {ok:true, bank}，失败返回 {ok:false, error}。
+       bank: { questions: [100 条文本], facets: {领域: {侧面: [题号]}},
+               reverse: Set(题号), altruism: [题号] } */
+    function parseItemCsv(text) {
+        const fail = msg => ({ ok: false, error: msg });
+        const rows = parseCsvText(text);
+        if (rows.length < 2) return fail('文件为空或没有数据行');
+        const header = rows[0].map(h => h.trim());
+        if (header.length !== 5 || CSV_HEADER.some((h, i) => header[i] !== h))
+            return fail('表头必须为：' + CSV_HEADER.join(','));
+        const bank = { questions: [], facets: {}, reverse: new Set(), altruism: [] };
+        const seen = new Set();
+        for (let r = 1; r < rows.length; r++) {
+            const c = rows[r];
+            if (c.length !== 5) return fail('第 ' + (r + 1) + ' 行应为 5 列');
+            const num = Number(c[0].trim());
+            const qText = c[1].trim();
+            const f = factorAlias[c[2].trim()];
+            const fa = f ? facetAlias[(f === 'altruism' ? 'altruism' : f) + '\u0000' + c[3].trim()] : undefined;
+            const rev = c[4].trim();
+            if (!Number.isInteger(num) || num < 1 || seen.has(num)) return fail('第 ' + (r + 1) + ' 行题号非法或重复');
+            seen.add(num);
+            if (!qText) return fail('第 ' + (r + 1) + ' 行题目为空');
+            if (!f) return fail('第 ' + (r + 1) + ' 行领域「' + c[2].trim() + '」无法识别');
+            if (!fa) return fail('第 ' + (r + 1) + ' 行侧面「' + c[3].trim() + '」无法识别（领域：' + c[2].trim() + '）');
+            if (rev !== '0' && rev !== '1') return fail('第 ' + (r + 1) + ' 行反向计分应为 0 或 1');
+            bank.questions.push(qText);
+            if (f === 'altruism') bank.altruism.push(num);
+            else {
+                (bank.facets[f] = bank.facets[f] || {});
+                (bank.facets[f][fa] = bank.facets[f][fa] || []).push(num);
+            }
+            if (rev === '1') bank.reverse.add(num);
+        }
+        if (rows.length - 1 !== 100) return fail('应为 100 行数据，实际 ' + (rows.length - 1));
+        for (let n = 1; n <= 100; n++) if (!seen.has(n)) return fail('缺少题号 ' + n);
+        for (const f of FACTOR_ORDER) {
+            if (!bank.facets[f]) return fail('缺少领域：' + factorZh[f]);
+            for (const fa of FACET_ORDER[f]) {
+                const arr = bank.facets[f][fa] || [];
+                if (arr.length !== 4) return fail('领域「' + factorZh[f] + '」侧面「' + facetZh[fa] + '」应为 4 题，实际 ' + arr.length);
+            }
+        }
+        if (bank.altruism.length !== 4) return fail('利他主义领域应为 4 题，实际 ' + bank.altruism.length);
+        return { ok: true, bank };
+    }
+
+    /* 用校验通过的题本替换内置数据（题目文本 + 评分结构全部来自题本） */
+    function applyItemBank(bank) {
+        questions = bank.questions;
+        N_ITEMS = questions.length;
+        TOTAL_PAGES = Math.ceil(N_ITEMS / PER_PAGE);
+        scoringKeys = {};
+        for (const f of FACTOR_ORDER) {
+            scoringKeys[f] = {};
+            for (const fa of FACET_ORDER[f]) scoringKeys[f][fa] = bank.facets[f][fa].slice().sort((a, b) => a - b);
+        }
+        reverseScoredItems = Array.from(bank.reverse).sort((a, b) => a - b);
+        reverseSet = new Set(reverseScoredItems);
+        altruismItems = bank.altruism.slice().sort((a, b) => a - b);
+        buildItemFactor();
+    }
+
+    let itemsSource = 'builtin';
+    const ITEMS_SOURCE_ZH = { csv: '同目录 CSV', local: 'dev 导入（本地）', builtin: '内置' };
+    function markItemsSource(src) {
+        itemsSource = src;
+        try { document.documentElement.setAttribute('data-items-source', src); } catch (e) {}
+        const el = document.getElementById('devSrc');
+        if (el) el.textContent = '题本来源：' + (ITEMS_SOURCE_ZH[src] || src);
+    }
+
+    /* 启动时加载外部题本；任何失败都安全回退到内置题本 */
+    async function loadItemBank() {
+        if (CONFIG.itemsCsv) {
+            try {
+                const res = await fetch(CONFIG.itemsCsv, { cache: 'no-store' });
+                if (res.ok) {
+                    const p = parseItemCsv(await res.text());
+                    if (p.ok) { applyItemBank(p.bank); markItemsSource('csv'); return; }
+                    console.warn('[HEXACO] 题本 CSV 校验失败：' + p.error);
+                    showToast('题本 CSV 校验失败（' + p.error + '），已使用内置题本');
+                    return; // 部署的 CSV 有问题时不用本地导入顶替，直接兜底并提示
+                }
+            } catch (e) { /* file:// 或文件不存在：继续下一级 */ }
+        }
+        try {
+            const raw = localStorage.getItem(ITEMS_CSV_KEY);
+            if (raw) {
+                const p = parseItemCsv(raw);
+                if (p.ok) { applyItemBank(p.bank); markItemsSource('local'); return; }
+                localStorage.removeItem(ITEMS_CSV_KEY);
+                showToast('本地导入的题本无效，已清除并使用内置题本');
+            }
+        } catch (e) {}
+        markItemsSource('builtin');
+    }
+
+    /* ============================================================
+       5. 状态与本地存储
+       ============================================================ */
+    let N_ITEMS = questions.length;
+    const PER_PAGE = CONFIG.perPage;
+    let TOTAL_PAGES = Math.ceil(N_ITEMS / PER_PAGE);
+    const STORAGE_KEY = CONFIG.storagePrefix + '_progress_v1';
+    const THEME_KEY = CONFIG.storagePrefix + '_theme';
+
+    let answers = new Array(N_ITEMS).fill(0);
+    let page = 0;
+
+    /* ---------- 施测元数据（供 AI 解读的质量信息） ----------
+       计时原则：只累计活跃时长（切走页面即暂停）；单次间隔超过 120 秒按
+       120 秒截断计入并记一次中断，避免挂机污染数据。 */
+    const ITEM_CAP_MS = 120000;
+    let meta = freshMeta();
+    let lastEventTs = null; // null = 计时暂停中
+
+    function freshMeta() {
+        return {
+            startedDate: null,   // 首次作答日期 ISO
+            sessions: 1,         // 会话次数（续答 +1）
+            activeMs: 0,         // 活跃总时长
+            pageMs: {},          // 每页活跃时长
+            itemMs: {},          // 每题首次作答响应时长（截断后）
+            truncated: 0,        // 被 120s 截断的间隔次数
+            changes: 0,          // 改答次数
+            devFill: false       // 测试模式填充标记
+        };
+    }
+    function elapse() {
+        if (lastEventTs === null) { lastEventTs = Date.now(); return 0; }
+        const now = Date.now();
+        let d = now - lastEventTs;
+        lastEventTs = now;
+        if (d > ITEM_CAP_MS) { d = ITEM_CAP_MS; meta.truncated++; }
+        return d;
+    }
+    /* 计时只在答题屏进行：欢迎页/结果页不计时，避免后台挂机虚增施测时长 */
+    function onTestScreen() { return document.getElementById('test').classList.contains('active'); }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (onTestScreen() && lastEventTs !== null) { // 切走前把已流逝时间入账（不归属任何题）
+                const raw = Date.now() - lastEventTs;
+                const d = Math.min(raw, ITEM_CAP_MS);
+                if (raw > ITEM_CAP_MS) meta.truncated++;
+                meta.activeMs += d;
+                meta.pageMs[page] = (meta.pageMs[page] || 0) + d;
+            }
+            lastEventTs = null;
+        } else {
+            lastEventTs = onTestScreen() ? Date.now() : null;
+        }
+    });
+
+    /* 由元数据生成统计摘要与质量旗标 */
+    function metaSummary() {
+        const times = Object.values(meta.itemMs).sort((a, b) => a - b);
+        const median = times.length ? times[Math.floor(times.length / 2)] / 1000 : 0;
+        const fast = times.filter(t => t < 2000).length;
+        let run = 0, best = 0, prev = 0;
+        answers.forEach(a => {
+            if (a > 0 && a === prev) { run++; } else { run = a > 0 ? 1 : 0; }
+            prev = a;
+            if (run > best) best = run;
+        });
+        const totalMin = meta.activeMs / 60000;
+        const flags = [];
+        if (meta.devFill) flags.push('测试模式填充（非真实作答）');
+        else {
+            if (totalMin < 5) flags.push('作答过快（活跃总时长不足 5 分钟）');
+            if (best >= 15) flags.push('疑似直线作答（连续 ' + best + ' 题同一选项）');
+            if (meta.sessions > 1) flags.push('跨会话完成（' + meta.sessions + ' 次会话）');
+        }
+        return {
+            totalMin: Math.round(totalMin * 10) / 10,
+            medianItemSec: Math.round(median * 10) / 10,
+            fastItems: fast,
+            longestRun: best,
+            changes: meta.changes,
+            sessions: meta.sessions,
+            truncated: meta.truncated,
+            flags
+        };
+    }
+
+    function saveProgress() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ answers, page, meta })); } catch (e) {}
+    }
+    /* 清洗存储的施测元数据：坏字段一律回到缺省值，不信任外部数据 */
+    function sanitizeMeta(m) {
+        const f = freshMeta();
+        if (!m || typeof m !== 'object') return f;
+        const num = (v, d) => { const x = +v; return Number.isFinite(x) ? x : d; };
+        f.startedDate = typeof m.startedDate === 'string' && m.startedDate ? m.startedDate : null;
+        f.sessions = Math.max(1, Math.trunc(num(m.sessions, 1)));
+        f.activeMs = Math.max(0, num(m.activeMs, 0));
+        f.pageMs = (m.pageMs && typeof m.pageMs === 'object') ? m.pageMs : {};
+        f.itemMs = (m.itemMs && typeof m.itemMs === 'object') ? m.itemMs : {};
+        f.truncated = Math.max(0, Math.trunc(num(m.truncated, 0)));
+        f.changes = Math.max(0, Math.trunc(num(m.changes, 0)));
+        f.devFill = !!m.devFill;
+        return f;
+    }
+    function loadProgress() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data.answers) || data.answers.length !== N_ITEMS) return null;
+            for (const a of data.answers) {
+                // 0 = 未作答，是合法的进度值；1..likertPoints 之外的才是坏数据
+                if (!Number.isInteger(a) || a < 0 || a > CONFIG.likertPoints) return null;
+            }
+            const page = Math.max(0, Math.min(TOTAL_PAGES - 1, Math.trunc(+data.page || 0)));
+            return { answers: data.answers.slice(), page, meta: sanitizeMeta(data.meta) };
+        } catch (e) {}
+        return null;
+    }
+    function clearProgress() { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
+    function answeredNum() { return answers.filter(a => a > 0).length; }
+
+    /* ============================================================
+       6. 主题与屏幕切换
+       ============================================================ */
+    function initTheme() {
+        let saved = null;
+        try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+        if (!saved) saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+    }
+    document.getElementById('themeToggle').addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    });
+
+    /* ---------- 屏幕切换（属于 6） ---------- */
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        const scr = document.getElementById(id);
+        scr.classList.add('active');
+        scr.scrollTop = 0; // 独立滚动容器：归零即定位，无需补偿
+        if (id !== 'test') lastEventTs = null; // 离开答题屏：停止计时
+    }
+
+    /* ============================================================
+       7. 欢迎页
+       ============================================================ */
+    function initWelcome() {
+        const saved = loadProgress();
+        const note = document.getElementById('resumeNote');
+        const actions = document.getElementById('welcomeActions');
+        const wc = document.getElementById('welcomeCount');
+        if (wc) wc.textContent = N_ITEMS;
+        const done = saved ? saved.answers.filter(a => a > 0).length : 0;
+
+        if (saved && done === N_ITEMS) {
+            // 已完成全部作答：提供直接回看结果，避免“开始测试”误删已完成的作答
+            actions.innerHTML =
+                '<button class="btn btn-primary" id="resumeBtn">查看结果</button>' +
+                '<button class="btn btn-ghost" id="freshBtn">重新开始</button>';
+            note.style.display = 'block';
+            note.textContent = '上次已完成全部 ' + N_ITEMS + ' 题，可直接查看结果';
+            document.getElementById('resumeBtn').addEventListener('click', () => {
+                answers = saved.answers.slice();
+                meta = saved.meta;
+                lastEventTs = null;
+                renderResults();
+                showScreen('result');
+            });
+            document.getElementById('freshBtn').addEventListener('click', startFresh);
+        } else if (saved && done > 0) {
+            actions.innerHTML =
+                '<button class="btn btn-primary" id="resumeBtn">继续测试</button>' +
+                '<button class="btn btn-ghost" id="freshBtn">重新开始</button>';
+            note.style.display = 'block';
+            note.textContent = '上次已完成 ' + done + ' / ' + N_ITEMS + ' 题';
+            document.getElementById('resumeBtn').addEventListener('click', () => {
+                answers = saved.answers.slice();
+                page = saved.page;
+                meta = saved.meta;
+                meta.sessions++;
+                lastEventTs = null;
+                enterTest();
+            });
+            document.getElementById('freshBtn').addEventListener('click', startFresh);
+        } else {
+            actions.innerHTML = '<button class="btn btn-primary" id="startBtn">开始测试</button>';
+            note.style.display = 'none';
+            document.getElementById('startBtn').addEventListener('click', startFresh);
+        }
+    }
+
+    function startFresh() {
+        answers = new Array(N_ITEMS).fill(0);
+        page = 0;
+        meta = freshMeta();
+        lastEventTs = null;
+        clearProgress();
+        enterTest();
+    }
+
+    function enterTest() {
+        showScreen('test');
+        renderPage();
+        updateProgress();
+        focusPageTop(true);
+    }
+
+    /* 翻页/进入后回到容器顶部（首题即在顶栏下方）；可选聚焦首题便于键盘作答 */
+    function focusPageTop(moveFocus) {
+        document.getElementById('test').scrollTop = 0;
+        if (moveFocus) {
+            const input = document.querySelector('#questionList .question input');
+            if (input) input.focus({ preventScroll: true });
+        }
+    }
+
+    /* ============================================================
+       8. 渲染与导航
+       ============================================================ */
+    function renderPage() {
+        const list = document.getElementById('questionList');
+        list.innerHTML = '';
+        const start = page * PER_PAGE;
+        const end = Math.min(start + PER_PAGE, questions.length);
+
+        for (let i = start; i < end; i++) {
+            const num = i + 1;
+            const el = document.createElement('div');
+            el.className = 'question' + (answers[i] > 0 ? ' answered' : '');
+            el.dataset.idx = i;
+
+            let dots = '';
+            for (let v = 1; v <= CONFIG.likertPoints; v++) {
+                const checked = answers[i] === v ? 'checked' : '';
+                dots +=
+                    '<label class="dot">' +
+                        '<input type="radio" name="q' + num + '" value="' + v + '" ' + checked +
+                            ' aria-label="' + optionLabels[v-1] + '">' +
+                        '<span class="pip">' + v + '</span>' +
+                    '</label>';
+            }
+
+            el.innerHTML =
+                '<p class="q-text"><span class="q-num tnum">' + num + '</span><span>' + questions[i] + '</span></p>' +
+                '<div class="scale" role="radiogroup" aria-label="第' + num + '题">' + dots + '</div>' +
+                '<div class="scale-ends"><span>← ' + CONFIG.anchorLow + '</span><span>' + CONFIG.anchorHigh + ' →</span></div>' +
+                '<p class="scale-picked" data-picked>' + (answers[i] > 0 ? optionLabels[answers[i]-1] : '') + '</p>';
+
+            el.querySelectorAll('input').forEach(input => {
+                input.addEventListener('change', function () {
+                    const idx = i;
+                    const v = parseInt(this.value, 10);
+                    const d = elapse();
+                    meta.activeMs += d;
+                    meta.pageMs[page] = (meta.pageMs[page] || 0) + d;
+                    if (answers[idx] > 0) {
+                        if (answers[idx] !== v) meta.changes++;
+                    } else {
+                        meta.itemMs[idx] = d; // 仅记首次作答的响应时长
+                    }
+                    if (!meta.startedDate) meta.startedDate = new Date().toISOString().slice(0, 10);
+                    answers[idx] = v;
+                    el.classList.add('answered');
+                    el.querySelector('[data-picked]').textContent = optionLabels[answers[idx]-1];
+                    saveProgress();
+                    updateProgress();
+                    scrollToNextUnanswered(idx);
+                });
+            });
+
+            list.appendChild(el);
+        }
+
+        lastEventTs = document.hidden ? null : Date.now(); // 新页起点，翻页动作本身不计入题时长
+
+        document.getElementById('curPage').textContent = page + 1;
+        document.getElementById('totalPages').textContent = TOTAL_PAGES;
+        document.getElementById('pageLabel').textContent = '第 ' + (page + 1) + ' / ' + TOTAL_PAGES + ' 页';
+        document.getElementById('prevBtn').disabled = page === 0;
+
+        const nextBtn = document.getElementById('nextBtn');
+        if (page === TOTAL_PAGES - 1) {
+            nextBtn.textContent = '查看结果';
+        } else {
+            nextBtn.textContent = '下一页';
+        }
+        document.getElementById('navHint').textContent =
+            page === TOTAL_PAGES - 1 ? '答完全部题目后即可查看结果 · 可随时返回修改' : '选择后自动滚到下一题 · 可随时返回修改';
+    }
+
+    function scrollToNextUnanswered(fromIdx) {
+        const start = page * PER_PAGE;
+        const end = Math.min(start + PER_PAGE, questions.length);
+        for (let i = fromIdx + 1; i < end; i++) {
+            if (answers[i] === 0) {
+                const target = document.querySelector('.question[data-idx="' + i + '"]');
+                if (target) scrollQuestionIntoView(target);
+                return;
+            }
+        }
+    }
+
+    /* 把目标题滚到 #test 容器上 1/3 处（中偏上）：视线自然落点偏上，
+       上一题尾部仍可见保持连续，下方露出后续题目作为提示。
+       不用 scrollIntoView：body 锁滚 + 内层滚动容器的布局下，
+       部分 WebView/旧 Safari 会忽略其参数导致不滚动。 */
+    function scrollQuestionIntoView(target) {
+        const c = document.getElementById('test');
+        const y = target.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+        const top = Math.max(0, y - c.clientHeight * 0.33);
+        try { c.scrollTo({ top: top, behavior: 'smooth' }); }
+        catch (e) { c.scrollTop = top; }
+    }
+
+    function updateProgress() {
+        const n = answeredNum();
+        document.getElementById('answeredCount').textContent = n;
+        document.getElementById('totalCount').textContent = N_ITEMS;
+        document.getElementById('progressFill').style.width = (n / N_ITEMS * 100) + '%';
+    }
+
+    /* ---------- 导航（属于 8） ---------- */
+    document.getElementById('prevBtn').addEventListener('click', () => {
+        if (page > 0) { page--; saveProgress(); renderPage(); focusPageTop(false); }
+    });
+    document.getElementById('nextBtn').addEventListener('click', () => {
+        if (page < TOTAL_PAGES - 1) {
+            page++; saveProgress(); renderPage(); focusPageTop(false);
+        } else {
+            tryFinish();
+        }
+    });
+
+    function tryFinish() {
+        const n = answeredNum();
+        if (n < N_ITEMS) {
+            // 跳到第一道未答题所在页
+            const firstUnanswered = answers.findIndex(a => a === 0);
+            page = Math.floor(firstUnanswered / PER_PAGE);
+            renderPage();
+            const target = document.querySelector('.question[data-idx="' + firstUnanswered + '"]');
+            showToast('还有 ' + (N_ITEMS - n) + ' 题未完成');
+            if (target) setTimeout(() => scrollQuestionIntoView(target), 100);
+            return;
+        }
+        renderResults();
+        showScreen('result');
+    }
+
+    /* 键盘：1–5 作答当前视口内的题，←/→ 翻页 */
+    document.addEventListener('keydown', (e) => {
+        if (!document.getElementById('test').classList.contains('active')) return;
+        const k = /^\d{1,2}$/.test(e.key) ? parseInt(e.key, 10) : -1; // 数字键作答（数值比较，避免字符串比较的边界问题）
+        if (k >= 1 && k <= CONFIG.likertPoints) {
+            const qs = document.querySelectorAll('.question');
+            let focusQ = null, minDist = Infinity;
+            qs.forEach(q => {
+                const r = q.getBoundingClientRect();
+                const dist = Math.abs(r.top + r.height / 2 - window.innerHeight / 2);
+                if (dist < minDist) { minDist = dist; focusQ = q; }
+            });
+            if (focusQ) {
+                const input = focusQ.querySelector('input[value="' + k + '"]');
+                if (input) { input.checked = true; input.dispatchEvent(new Event('change')); }
+            }
+        } else if (e.key === 'ArrowRight') {
+            document.getElementById('nextBtn').click();
+        } else if (e.key === 'ArrowLeft') {
+            document.getElementById('prevBtn').click();
+        }
+    });
+
+    /* ============================================================
+       9. 计分（与官方评分手册一致；反向题按 6−x 折算）
+       ============================================================ */
+    function computeScores() {
+        for (let i = 0; i < answers.length; i++) {
+            const a = answers[i];
+            if (!Number.isInteger(a) || a < 1 || a > CONFIG.likertPoints) {
+                throw new Error('第 ' + (i + 1) + ' 题存在未作答或非法答案；computeScores 只能在全部作答后调用');
+            }
+        }
+        const factorScores = {}, facetScores = {};
+        for (const [factor, facets] of Object.entries(scoringKeys)) {
+            let total = 0, count = 0;
+            facetScores[factor] = {};
+            for (const [facet, items] of Object.entries(facets)) {
+                let sum = 0;
+                items.forEach(it => {
+                    let a = answers[it - 1];
+                    if (reverseSet.has(it)) a = 6 - a;
+                    sum += a;
+                });
+                facetScores[factor][facet] = (sum / items.length).toFixed(2);
+                total += sum; count += items.length;
+            }
+            factorScores[factor] = (total / count).toFixed(2);
+        }
+        let alt = 0;
+        altruismItems.forEach(it => {
+            let a = answers[it - 1];
+            if (reverseSet.has(it)) a = 6 - a;
+            alt += a;
+        });
+        return { factorScores, facetScores, altruism: (alt / altruismItems.length).toFixed(2) };
+    }
+
+    /* ============================================================
+       10. 结果渲染
+       ============================================================ */
+    let lastScores = null;
+
+    function renderResults() {
+        const scores = computeScores();
+        lastScores = scores;
+        const factors = Object.keys(scoringKeys);
+
+        document.getElementById('resultTime').textContent =
+            new Date().toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        document.getElementById('radarMount').innerHTML = buildRadar(scores.factorScores, factors);
+        document.getElementById('barsMount').innerHTML = buildBars(scores.factorScores, factors);
+        document.getElementById('detailsMount').innerHTML = factors.map(f => buildDetailCard(f, scores)).join('');
+        document.getElementById('altruismMount').innerHTML =
+            '<div class="altruism-head"><span class="t">利他主义 <small style="color:var(--faint);font-weight:400">居间量表</small></span><span class="s tnum">' + scores.altruism + '</span></div>' +
+            '<p>' + altruismDesc + '</p>';
+
+        // 触发条形动画
+        requestAnimationFrame(() => {
+            document.querySelectorAll('#barsMount .bar-fill, .facet-mini i').forEach(el => {
+                el.style.width = el.dataset.w;
+            });
+        });
+    }
+
+    function pct(score) { return ((parseFloat(score) - 1) / 4) * 100; }
+
+    function buildRadar(factorScores, factors) {
+        const size = 320, cx = size / 2, cy = size / 2, R = 118;
+        const n = factors.length;
+        const angle = i => (-Math.PI / 2) + (i * 2 * Math.PI / n);
+        const pt = (i, r) => [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))];
+
+        let grid = '';
+        [0.25, 0.5, 0.75, 1].forEach(f => {
+            const pts = factors.map((_, i) => pt(i, R * f).map(v => v.toFixed(1)).join(',')).join(' ');
+            grid += '<polygon class="radar-grid" points="' + pts + '"/>';
+        });
+        let axes = '';
+        factors.forEach((_, i) => {
+            const [x, y] = pt(i, R);
+            axes += '<line class="radar-axis" x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '"/>';
+        });
+
+        const shapePts = factors.map((f, i) => {
+            const r = R * (parseFloat(factorScores[f]) - 1) / 4;
+            return pt(i, r).map(v => v.toFixed(1)).join(',');
+        }).join(' ');
+
+        let verts = '';
+        factors.forEach((f, i) => {
+            const r = R * (parseFloat(factorScores[f]) - 1) / 4;
+            const [x, y] = pt(i, r);
+            verts += '<circle class="radar-vertex" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.2"/>';
+        });
+
+        let labels = '';
+        factors.forEach((f, i) => {
+            const [x, y] = pt(i, R + 24);
+            let anchor = 'middle';
+            if (x < cx - 10) anchor = 'end';
+            else if (x > cx + 10) anchor = 'start';
+            labels +=
+                '<text class="radar-label" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anchor + '">' + factorAbbr[f] + '</text>' +
+                '<text class="radar-label-score tnum" x="' + x.toFixed(1) + '" y="' + (y + 15).toFixed(1) + '" text-anchor="' + anchor + '">' + factorScores[f] + '</text>';
+        });
+
+        return '<svg class="radar-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="六维雷达图">' +
+            grid + axes +
+            '<polygon class="radar-shape" points="' + shapePts + '"/>' +
+            verts + labels +
+            '</svg>';
+    }
+
+    function buildBars(factorScores, factors) {
+        return factors.map(f => {
+            const score = factorScores[f];
+            const color = 'var(' + factorVar[f] + ')';
+            return '<div class="bar-row">' +
+                '<div class="bar-name"><span class="bar-swatch" style="background:' + color + '"></span>' + factorZh[f] + '</div>' +
+                '<div class="bar-track"><div class="bar-fill" data-w="' + pct(score) + '%" style="background:' + color + '"></div></div>' +
+                '<div class="bar-val tnum">' + score + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function buildDetailCard(factor, scores) {
+        const color = 'var(' + factorVar[factor] + ')';
+        const facetHTML = Object.entries(scores.facetScores[factor]).map(([facet, s]) =>
+            '<div class="facet">' +
+                '<span class="facet-name">' + (facetZh[facet] || facet) + '</span>' +
+                '<span class="facet-score tnum">' + s + '</span>' +
+                '<div class="facet-mini"><i data-w="' + pct(s) + '%" style="background:' + color + '"></i></div>' +
+            '</div>'
+        ).join('');
+
+        return '<div class="card dim-card" style="border-left-color:' + color + '">' +
+            '<div class="dim-head"><span class="dim-title">' + factorZh[factor] + '</span>' +
+            '<span class="dim-score tnum" style="color:' + color + '">' + scores.factorScores[factor] + '<small> / 5</small></span></div>' +
+            '<div class="facets">' + facetHTML + '</div>' +
+            '</div>';
+    }
+
+    /* ============================================================
+       11. 导出：紧凑概览卡 PNG / PDF 报告 / 复制文字
+       ============================================================ */
+
+    function fmtTime() {
+        return new Date().toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function cssVar(name, fallback) {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    }
+
+    /* 导出专用：用 Canvas 2D 直接绘制雷达图。
+       位图绘制不依赖任何外部库，且规避了第三方 DOM 截图方案
+       对 SVG 文本锚点支持不完整导致的偏移问题。 */
+    function drawRadarCanvas(factorScores, factors, displaySize) {
+        const dpr = 2, size = displaySize, cx = size / 2, cy = size / 2, R = size * 0.335;
+        const cv = document.createElement('canvas');
+        cv.width = size * dpr; cv.height = size * dpr;
+        cv.style.width = size + 'px'; cv.style.height = size + 'px';
+        cv.style.display = 'block'; cv.style.margin = '0 auto';
+        const ctx = cv.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        const ink = cssVar('--ink', '#1c1c1a');
+        const hair = cssVar('--hairline', '#e7e7e1');
+        const muted = cssVar('--muted', '#6e6e66');
+        const surface = cssVar('--surface', '#ffffff');
+        const font = "'PingFang SC','Microsoft YaHei',system-ui,sans-serif";
+
+        const n = factors.length;
+        const ang = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+        const pt = (i, r) => [cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))];
+
+        // 网格与轴
+        ctx.strokeStyle = hair; ctx.lineWidth = 1;
+        [0.25, 0.5, 0.75, 1].forEach(f => {
+            ctx.beginPath();
+            factors.forEach((_, i) => { const [x, y] = pt(i, R * f); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+            ctx.closePath(); ctx.stroke();
+        });
+        factors.forEach((_, i) => {
+            const [x, y] = pt(i, R);
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+        });
+
+        // 数据多边形
+        ctx.beginPath();
+        factors.forEach((f, i) => {
+            const r = R * (parseFloat(factorScores[f]) - 1) / 4;
+            const [x, y] = pt(i, r);
+            i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        });
+        ctx.closePath();
+        ctx.globalAlpha = 0.08; ctx.fillStyle = ink; ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+
+        // 顶点
+        factors.forEach((f, i) => {
+            const r = R * (parseFloat(factorScores[f]) - 1) / 4;
+            const [x, y] = pt(i, r);
+            ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+            ctx.fillStyle = surface; ctx.fill();
+            ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke();
+        });
+
+        // 标签（名称 + 分数），用 ctx.textAlign 精确对齐
+        ctx.textBaseline = 'alphabetic';
+        factors.forEach((f, i) => {
+            const [x, y] = pt(i, R + 24);
+            ctx.textAlign = x < cx - 10 ? 'right' : (x > cx + 10 ? 'left' : 'center');
+            ctx.font = '500 12px ' + font;
+            ctx.fillStyle = muted;
+            ctx.fillText(factorAbbr[f], x, y);
+            ctx.font = '600 12px ' + font;
+            ctx.fillStyle = ink;
+            ctx.fillText(factorScores[f], x, y + 15);
+        });
+
+        return cv;
+    }
+
+    /* 全 Canvas 自绘紧凑概览卡（零外部依赖）。
+       设计坐标 640 宽，2x 输出 1280；雷达复用 drawRadarCanvas 位图。 */
+    function drawOverviewCard() {
+        const S = 2, W = 640;
+        const ink = cssVar('--ink', '#1c1c1a'), muted = cssVar('--muted', '#6e6e66'),
+              faint = cssVar('--faint', '#9a9a90'), hair = cssVar('--hairline', '#e7e7e1'),
+              bg = cssVar('--bg', '#f7f7f4');
+        const font = "'PingFang SC','Microsoft YaHei',system-ui,sans-serif";
+        const factors = Object.keys(scoringKeys);
+
+        const rowH = 46, pad = 44;
+        const radarSize = 360;
+        let H = 40 + 22 + 34 + 26 + radarSize + 16 + factors.length * rowH + 40 + 44 + 30;
+
+        const cv = document.createElement('canvas');
+        cv.width = W * S; cv.height = H * S;
+        const ctx = cv.getContext('2d');
+        ctx.scale(S, S);
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+        ctx.textBaseline = 'alphabetic';
+
+        let y = 40;
+        ctx.textAlign = 'center';
+        ctx.font = '500 11px ' + font; ctx.fillStyle = faint;
+        ctx.fillText('H E X A C O · P I - R', W / 2, y); y += 30;
+        ctx.font = '400 24px ' + font; ctx.fillStyle = ink;
+        ctx.fillText('六维人格画像', W / 2, y); y += 24;
+        ctx.font = '400 12px ' + font; ctx.fillStyle = faint;
+        ctx.fillText(fmtTime(), W / 2, y); y += 14;
+
+        const radar = drawRadarCanvas(lastScores.factorScores, factors, radarSize);
+        ctx.drawImage(radar, (W - radarSize) / 2, y, radarSize, radarSize);
+        y += radarSize + 10;
+
+        ctx.strokeStyle = hair; ctx.lineWidth = 1;
+        factors.forEach(f => {
+            ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+            const cyy = y + rowH / 2;
+            ctx.fillStyle = cssVar(factorVar[f], '#888');
+            ctx.beginPath(); ctx.arc(pad + 5, cyy - 4, 4.5, 0, Math.PI * 2); ctx.fill();
+            ctx.textAlign = 'left';
+            ctx.font = '500 14px ' + font; ctx.fillStyle = ink;
+            ctx.fillText(factorZh[f], pad + 18, cyy);
+            ctx.font = '600 16px ' + font;
+            ctx.fillText(lastScores.factorScores[f], pad + 108, cyy + 1);
+            const facets = Object.entries(lastScores.facetScores[f])
+                .map(([fa, s]) => (facetZh[fa] || fa) + ' ' + s).join(' · ');
+            ctx.font = '400 10.5px ' + font; ctx.fillStyle = muted;
+            ctx.fillText(facets, pad + 158, cyy);
+            y += rowH;
+        });
+        ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+
+        y += 28;
+        ctx.textAlign = 'left';
+        ctx.font = '400 12px ' + font; ctx.fillStyle = muted;
+        ctx.fillText('利他主义（居间量表）', pad, y);
+        ctx.font = '600 14px ' + font; ctx.fillStyle = ink;
+        ctx.fillText(lastScores.altruism, pad + 138, y);
+
+        y += 34;
+        ctx.textAlign = 'center';
+        ctx.font = '400 10px ' + font; ctx.fillStyle = faint;
+        ctx.fillText('分数范围 1–5，仅为原始分数，不含分析或价值判断 · 本工具不能替代专业心理评估', W / 2, y);
+
+        return cv;
+    }
+
+    function fileDate() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    document.getElementById('saveImageBtn').addEventListener('click', () => {
+        if (!lastScores) return;
+        try {
+            const cv = drawOverviewCard();
+            const link = document.createElement('a');
+            link.download = CONFIG.filePrefix + '_结果_' + fileDate() + '.png';
+            link.href = cv.toDataURL('image/png');
+            link.click();
+            showToast('已保存图片');
+        } catch (err) {
+            showToast('生成失败，请稍后再试');
+        }
+    });
+
+    /* PDF：填充打印报告后调起系统打印框（目标打印机选“另存为 PDF”） */
+    function buildPrintReport() {
+        const factors = Object.keys(scoringKeys);
+
+        let scoreTable = '<table><tr><th>领域</th><th>得分</th><th>侧面得分</th></tr>';
+        factors.forEach(f => {
+            const facets = Object.entries(lastScores.facetScores[f])
+                .map(([fa, s]) => (facetZh[fa] || fa) + ' ' + s).join('　');
+            scoreTable += '<tr><td>' + factorZh[f] + '</td><td class="num">' + lastScores.factorScores[f] + '</td><td>' + facets + '</td></tr>';
+        });
+        scoreTable += '<tr><td>利他主义（居间量表）</td><td class="num">' + lastScores.altruism + '</td><td>—</td></tr></table>';
+
+        const about =
+            '<h2>一、关于 HEXACO 模型</h2>' +
+            '<p class="pr-desc">HEXACO 人格结构模型由 Michael C. Ashton 与 Kibeom Lee 提出，于 2004 年正式发表，并在其 2013 年的著作《The H Factor of Personality》中作了进一步阐述。模型名称 HEXACO 由六个领域的英文首字母构成：诚实-谦逊（Honesty-Humility, H）、情绪性（Emotionality, E）、外向性（eXtraversion, X）、宜人性（Agreeableness, A）、尽责性（Conscientiousness, C）与经验开放性（Openness to Experience, O）。</p>' +
+            '<p class="pr-desc">该模型源自“词汇学假设”传统下的心理词汇学研究：研究者收集语言中描述人格的形容词，对自评或他评数据进行因素分析，以寻找能够概括人格差异的最小独立因素集合。此类研究最初在英语中开展，随后扩展到多种语言；跨语言比较显示，六因素解是在各受测语言中形态相似、可广泛复现的最大因素空间——这一结果构成了 HEXACO 模型的实证基础。</p>' +
+            '<p class="pr-desc">与广为人知的大五（Big Five）模型相比，HEXACO 的主要差异在于：其一，增加了独立的诚实-谦逊（H）因素，用以刻画真诚、公平、不贪婪与谦虚等内容；其二，其情绪性与宜人性是大五中相应因素的旋转变体——例如感伤内容归入情绪性，而易怒与否归入宜人性（宜人性的对立面即愤怒）；其三，经验开放性不包含智力能力，因为作者认为能力本身不属于人格结构。</p>' +
+            '<p class="pr-desc">测量工具 HEXACO-PI-R（HEXACO Personality Inventory–Revised）设有 200 题（完整版）、100 题（半长版）与 60 题（简版，2009 年推出）三个版本，短版为长版的子集，均提供自评与他评两种形式，并被翻译为多种语言，在心理学研究中广泛使用。本工具采用 100 题自评版：24 个侧面量表加 1 个利他主义居间量表，每个量表 4 题，采用 1–5 五点李克特计分（从“极不同意”到“非常同意”），部分题目反向计分。</p>';
+
+        let domains = '';
+        factors.forEach((f, i) => {
+            let facetList = '';
+            Object.entries(lastScores.facetScores[f]).forEach(([fa, s]) => {
+                facetList += '<li><b>' + (facetZh[fa] || fa) + '（' + fa + '）　' + s + ' / 5</b><br>' + (facetFull[fa] || '') + '</li>';
+            });
+            domains += '<div class="pr-domain">' +
+                '<h3>' + (i + 1) + '. ' + factorZh[f] + (factorNoteZh[f] || '') + ' <small>' + f + '</small>　' + lastScores.factorScores[f] + ' / 5</h3>' +
+                '<p class="pr-desc">' + factorFull[f] + '</p>' +
+                '<ul>' + facetList + '</ul>' +
+                '</div>';
+        });
+        domains += '<div class="pr-domain">' +
+            '<h3>7. 利他主义 <small>Altruism · Interstitial Scale</small>　' + lastScores.altruism + ' / 5</h3>' +
+            '<p class="pr-desc">' + altruismFull + '</p></div>';
+
+        document.getElementById('printReport').innerHTML =
+            '<h1>HEXACO 人格测试报告</h1>' +
+            '<p class="pr-sub">基于 HEXACO-PI-R 100 题自评量表（Lee &amp; Ashton）　·　测试时间：' + fmtTime() + '</p>' +
+            about +
+            '<h2>二、得分总表</h2>' + scoreTable +
+            '<h2>二·附　施测信息</h2>' +
+            '<ul>' + metaLines().lines.map(l => '<li>' + l + '</li>').join('') + '</ul>' +
+            '<p class="pr-desc">' + NORMS_NOTE + '</p>' +
+            '<h2>三、领域与侧面完整说明</h2>' +
+            '<p class="pr-desc">以下为 hexaco.org 官方量表描述（Scale Descriptions）的完整中译，仅描述各量表所测量的内容以及高分者与低分者的典型表现，不构成对本次得分的解读。HEXACO 模型包含六个领域（Domain），每个领域下设四个侧面（Facet）；利他主义为居间量表（Interstitial Scale）。</p>' +
+            domains +
+            '<h2>四、计分方法与使用说明</h2>' +
+            '<p class="pr-desc">各量表得分为其题目作答的平均值，范围 1–5，反向计分题目已按 HEXACO-PI-R 评分手册处理。领域分为其下四个侧面共 16 道题的平均值；利他主义按官方规则不计入六大领域的因素分。分数越高表示相应特质越明显，但分数高低本身不含好坏之分；不同量表分数的组合方式无穷多样，任何解读都应结合具体情境，由读者本人或其委托的专业人员完成。本报告仅呈现原始分数、模型背景与官方量表说明，不含个体化解读，不能替代专业的心理评估。</p>' +
+            '<div class="pr-keep">' +
+            '<h2>五、参考来源</h2>' +
+            '<ul>' +
+            '<li>Lee, K., &amp; Ashton, M. C. — The HEXACO Personality Inventory - Revised：Scale Descriptions、History of the Inventory 及计分材料（hexaco.org）。</li>' +
+            '<li>Lee, K., &amp; Ashton, M. C. (2008). The HEXACO personality factors in the indigenous personality lexicons of English and 11 other languages. <i>Journal of Personality</i>, 76, 1001–1053.</li>' +
+            '<li>Ashton, M. C., &amp; Lee, K. (2009). The HEXACO-60: A short measure of the major dimensions of personality. <i>Journal of Personality Assessment</i>, 91, 340–345.</li>' +
+            '<li>Wikipedia — HEXACO model of personality structure（模型背景综述）。</li>' +
+            '</ul></div>';
+    }
+
+    document.getElementById('pdfBtn').addEventListener('click', () => {
+        if (!lastScores) return;
+        buildPrintReport();
+        showToast('在打印窗口中选择「另存为 PDF」即可保存');
+        const oldTitle = document.title;
+        document.title = CONFIG.filePrefix + '_报告_' + fileDate(); // 多数桌面浏览器以此为默认文件名
+        const restore = () => { document.title = oldTitle; window.removeEventListener('afterprint', restore); };
+        window.addEventListener('afterprint', restore);
+        setTimeout(() => { window.print(); setTimeout(restore, 2000); }, 350);
+    });
+
+    /* 施测信息段（复制文字与 PDF 共用素材） */
+    function metaLines() {
+        const m = metaSummary();
+        const lines = [
+            '施测日期：' + (meta.startedDate || fileDate()),
+            '活跃作答时长：约 ' + m.totalMin + ' 分钟（切离页面的时间不计入）' + (m.sessions > 1 ? '，分 ' + m.sessions + ' 次会话完成' : ''),
+            '题均响应时长中位数：' + m.medianItemSec + ' 秒；2 秒内作答的题数：' + m.fastItems + ' / ' + N_ITEMS,
+            '修改过答案的次数：' + m.changes + '；最长连续同一选项：' + m.longestRun + ' 题',
+            '质量旗标：' + (m.flags.length ? m.flags.join('；') : '无')
+        ];
+        return { m, lines };
+    }
+
+    const NORMS_NOTE = '本结果为原始分（各量表 1–5 的均值），未换算常模相对位置。如需相对位置，请依据 Lee, K., & Ashton, M. C. (2018). Psychometric properties of the HEXACO-100. Assessment, 25(5), 543–556 中的描述统计表（样本：100,318 名在线自评者与 2,868 名大学生）计算 z 分数与百分位；该参照为英语（主要为北美）自选择样本，非中国常模，跨文化比较请保守解释。一般人群的领域均值多落在量表中点附近（约 3.0–3.5）。';
+
+    const AI_GUIDE = '如你是协助解读的 AI，请遵循：1) 以上述质量旗标校准信度，测试模式填充或作答过快时明确指出结果不可解读；2) 解读原始分时结合上面的参照文献信息，不要凭记忆虚构常模数字；3) 只给出具体、可证伪、与作答者实际经历可对照的观察，避免放之四海皆准的表述；4) 分数是描述不是判决，不给作答者贴类型标签；5) 若同时收到本人的其他测评结果（价值观、依恋、图式、状态筛查、优势），请交叉验证：任何显著结果先排查是否为当前情绪状态的放大，特质与价值观的错位处标注为潜在张力点，并为每个想改变的模式建议一个可调用的优势路径。';
+
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        if (!lastScores) return;
+        const factors = Object.keys(scoringKeys);
+        const { m, lines } = metaLines();
+        let t = '# HEXACO 人格测试结果\n\n';
+        t += '**导出时间**：' + new Date().toLocaleString('zh-CN') + '\n\n';
+        t += '## 施测信息\n\n' + lines.map(l => '- ' + l).join('\n') + '\n\n';
+        t += '> ' + NORMS_NOTE + '\n\n';
+        t += '> HEXACO 模型包含六个领域，每个领域下设四个侧面；利他主义为居间量表。以下说明依据官方量表描述译写，仅说明各量表测量的内容。\n\n---\n\n';
+        factors.forEach((f, i) => {
+            t += '## ' + (i + 1) + '. ' + factorZh[f] + '　' + lastScores.factorScores[f] + ' / 5\n\n';
+            t += '> ' + factorDesc[f] + '\n\n';
+            Object.entries(lastScores.facetScores[f]).forEach(([facet, s]) => {
+                t += '- **' + (facetZh[facet] || facet) + '　' + s + '**　—— ' + (facetDesc[facet] || '') + '\n';
+            });
+            t += '\n';
+        });
+        t += '## 7. 利他主义（居间量表）　' + lastScores.altruism + ' / 5\n\n';
+        t += '> ' + altruismDesc + '\n\n';
+        t += '## 给 AI 的解读引导\n\n' + AI_GUIDE + '\n\n';
+        t += '## 机器可读数据\n\n```json\n' + JSON.stringify({
+            tool: CONFIG.toolId, version: CONFIG.toolVersion,
+            date: meta.startedDate || fileDate(),
+            activeMinutes: m.totalMin, sessions: m.sessions,
+            qualityFlags: m.flags,
+            domains: lastScores.factorScores,
+            facets: lastScores.facetScores,
+            altruism: lastScores.altruism
+        }, null, 1) + '\n```\n\n';
+        t += '---\n\n> 分数范围 1–5，越高表示该特质越明显。基于 HEXACO-PI-R，仅为原始分数，不含分析或价值判断。\n';
+
+        const done = () => showToast('已复制到剪贴板');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(t).then(done).catch(() => fallbackCopy(t, done));
+        } else {
+            fallbackCopy(t, done);
+        }
+    });
+
+    function fallbackCopy(text, cb) {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); cb(); } catch (e) { showToast('复制失败'); }
+        document.body.removeChild(ta);
+    }
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        answers = new Array(N_ITEMS).fill(0);
+        page = 0;
+        meta = freshMeta();
+        lastEventTs = null;
+        clearProgress();
+        lastScores = null;
+        initWelcome();
+        showScreen('welcome');
+    });
+
+    /* ============================================================
+       12. Toast
+       ============================================================ */
+    let toastTimer = null;
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    /* ============================================================
+       13. Dev 测试模式（QA 用，真实用户不可见）
+       入口：欢迎页顶部小字连点 5 次（2 秒内），或地址栏加 #dev
+       ============================================================ */
+
+    // 梯度模式的目标均值取自 CONFIG.devGradientTargets（唯一来源）；
+    // 给各维度设不同目标均值，让雷达六轴长短分明，便于核对轴↔维度↔颜色↔数值
+
+    function clamp15(x) { return Math.max(1, Math.min(CONFIG.likertPoints, x)); }
+    function randn() { let u = Math.random() || 1e-9, v = Math.random() || 1e-9; return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+    // 生成一组作答；scored 是“计分后”的目标值，再按反向题折算回原始作答
+    function devFill(mode) {
+        const a = new Array(N_ITEMS).fill(0);
+        for (let i = 0; i < N_ITEMS; i++) {
+            const it = i + 1, rev = reverseSet.has(it);
+            if (mode === 'random') { a[i] = 1 + Math.floor(Math.random() * CONFIG.likertPoints); continue; }
+            if (mode === 'high')   { a[i] = CONFIG.likertPoints; continue; }
+            if (mode === 'low')    { a[i] = 1; continue; }
+            let scored;
+            if (mode === 'gradient') {
+                const t = (CONFIG.devGradientTargets && CONFIG.devGradientTargets[itemFactor[it]]) ?? 3;
+                scored = clamp15(Math.random() < (t - Math.floor(t)) ? Math.ceil(t) : Math.floor(t));
+            } else { // normal：集中在量表中点附近的小幅波动
+                scored = clamp15(Math.round((1 + CONFIG.likertPoints) / 2 + randn() * 0.9));
+            }
+            a[i] = rev ? (CONFIG.likertPoints + 1 - scored) : scored;
+        }
+        return a;
+    }
+
+    function devShowResult(mode) {
+        answers = devFill(mode);
+        meta = freshMeta();
+        meta.devFill = true;
+        meta.startedDate = new Date().toISOString().slice(0, 10);
+        renderResults();
+        showScreen('result');
+    }
+
+    // 仅填前 95 题、停在最后一页：用于验证正常提交流程与“还有 N 题未完成”校验
+    function devLastPage() {
+        answers = new Array(N_ITEMS).fill(0);
+        meta = freshMeta();
+        meta.devFill = true;
+        meta.startedDate = new Date().toISOString().slice(0, 10);
+        for (let i = 0; i < N_ITEMS - PER_PAGE; i++) answers[i] = 3;
+        page = TOTAL_PAGES - 1;
+        enterTest();
+    }
+
+    function buildDevPanel() {
+        if (document.getElementById('devPanel')) return;
+        const p = document.createElement('div');
+        p.id = 'devPanel';
+        p.className = 'dev-panel';
+        p.innerHTML =
+            '<div class="dev-head">测试模式 <button class="dev-close" aria-label="关闭">×</button></div>' +
+            '<div class="dev-grid">' +
+                '<button data-mode="gradient">梯度</button>' +
+                '<button data-mode="normal">正态</button>' +
+                '<button data-mode="random">随机</button>' +
+                '<button data-mode="high">全5</button>' +
+                '<button data-mode="low">全1</button>' +
+                '<button data-mode="lastpage">末页</button>' +
+                '<button data-mode="importcsv" class="wide">导入题本 CSV…</button>' +
+                '<button data-mode="resetcsv" class="wide">恢复内置题本</button>' +
+            '</div>' +
+            '<p class="dev-note">前五项直接生成结果页（验证展示/复制/导图）；「末页」验证提交校验；' +
+            '「导入题本 CSV…」读取本地 CSV 并保存（file:// 下也生效）；「恢复内置题本」清除并刷新。<br>' +
+            '<span id="devSrc"></span></p>';
+        document.body.appendChild(p);
+        p.querySelector('.dev-close').addEventListener('click', () => p.classList.remove('show'));
+
+        // 题本 CSV 本地导入（file:// 下无需服务器也能换题本）
+        const file = document.createElement('input');
+        file.type = 'file'; file.accept = '.csv,text/csv'; file.style.display = 'none';
+        file.addEventListener('change', () => {
+            const f = file.files && file.files[0];
+            file.value = '';
+            if (!f) return;
+            const rd = new FileReader();
+            rd.onload = () => {
+                const text = String(rd.result);
+                const res = parseItemCsv(text);
+                if (res.ok) {
+                    applyItemBank(res.bank);
+                    markItemsSource('local');
+                    try { localStorage.setItem(ITEMS_CSV_KEY, text); } catch (e) {}
+                    showToast('已导入题本（' + N_ITEMS + ' 题），刷新后仍生效');
+                } else {
+                    showToast('题本 CSV 校验失败：' + res.error);
+                }
+            };
+            rd.readAsText(f, 'utf-8');
+        });
+        p.appendChild(file);
+
+        p.querySelectorAll('button[data-mode]').forEach(b => {
+            b.addEventListener('click', () => {
+                const m = b.dataset.mode;
+                p.classList.remove('show');
+                if (m === 'lastpage') devLastPage();
+                else if (m === 'importcsv') file.click();
+                else if (m === 'resetcsv') {
+                    try { localStorage.removeItem(ITEMS_CSV_KEY); } catch (e) {}
+                    location.reload();
+                }
+                else devShowResult(m);
+            });
+        });
+        const src = document.getElementById('devSrc');
+        if (src) src.textContent = '题本来源：' + (ITEMS_SOURCE_ZH[itemsSource] || itemsSource);
+    }
+
+    function toggleDevPanel() {
+        buildDevPanel();
+        document.getElementById('devPanel').classList.toggle('show');
+    }
+
+    (function wireDevTrigger() {
+        const brand = document.getElementById('brandMark');
+        let clicks = 0, timer = null;
+        if (brand) {
+            brand.addEventListener('click', () => {
+                clicks++;
+                clearTimeout(timer);
+                timer = setTimeout(() => { clicks = 0; }, 2000);
+                if (clicks >= 5) { clicks = 0; toggleDevPanel(); }
+            });
+        }
+        if (location.hash === '#dev') { buildDevPanel(); toggleDevPanel(); }
+        window.addEventListener('hashchange', () => { if (location.hash === '#dev') toggleDevPanel(); });
+    })();
+
+    /* ============================================================
+       14. 启动
+       先确定题本（外部 CSV → 本地导入 → 内置），再渲染欢迎页
+       ============================================================ */
+    initTheme();
+    loadItemBank().then(initWelcome);
+    </script>
+</body>
+
+</html>
