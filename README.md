@@ -7,6 +7,7 @@
 
 | 文件 | 说明 |
 |---|---|
+| `index.html` | GitHub Pages 落地页（[线上版入口](https://poro789.github.io/hexaco-test/)，双击也能用） |
 | `HEXACO测试_V20260718-1.html` | 全部功能（答题、计分、雷达图、PDF/PNG 导出、dev 模式） |
 | `HEXACO_items.csv` | **外部题本**（100 题 + 评分结构），日常维护改这个文件 |
 | `Chinese_self100_simplified.doc` / `English_self100.doc` | 参照题本（原始材料，勿用于计分） |
@@ -14,6 +15,9 @@
 | `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 流程） |
 
 ## 使用方法
+
+**方式零：线上版（GitHub Pages）**
+<https://poro789.github.io/hexaco-test/> —— 仓库 `main` 分支根目录直接发布，题本 CSV 同目录可加载；无需下载即可作答。
 
 **方式一：双击 HTML（file://）**
 直接可用，使用内置题本（与 `HEXACO_items.csv` 内容一致）。
