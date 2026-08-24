@@ -11,6 +11,7 @@
 | `HEXACO测试_V20260718-1.html` | 全部功能（答题、计分、雷达图、PDF/PNG 导出、dev 模式） |
 | `HEXACO_items.csv` | **外部题本**（100 题 + 评分结构），日常维护改这个文件 |
 | `Chinese_self100_simplified.doc` / `English_self100.doc` | 参照题本（原始材料，勿用于计分） |
+| `.github/workflows/pages.yml` | GitHub Pages 自动部署（push 到 main 即发布线上版） |
 | `tools/generate_csv.mjs` | 从 HTML 内置数据重新生成 CSV |
 | `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 流程） |
 
