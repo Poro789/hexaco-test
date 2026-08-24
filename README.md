@@ -8,7 +8,7 @@
 | 文件 | 说明 |
 |---|---|
 | `index.html` | GitHub Pages 落地页（[线上版入口](https://poro789.github.io/hexaco-test/)，双击也能用） |
-| `HEXACO测试_v1.0.1.html` | 全部功能（答题、计分、雷达图、PDF/PNG 导出、dev 模式） |
+| `HEXACO测试_v1.0.2.html` | 全部功能（答题、计分、雷达图、PDF/PNG 导出、dev 模式） |
 | `HEXACO_items.csv` | **外部题本**（100 题 + 评分结构），日常维护改这个文件 |
 | `Chinese_self100_simplified.doc` / `English_self100.doc` | 参照题本（原始材料，勿用于计分） |
 | `.github/workflows/pages.yml` | GitHub Pages 自动部署（push 到 main 即发布线上版） |
@@ -27,7 +27,7 @@
 ```powershell
 cd <仓库根目录>          # 包含 HTML 与 HEXACO_items.csv 的目录
 python -m http.server 8123
-# 浏览器打开 http://127.0.0.1:8123/HEXACO测试_v1.0.1.html
+# 浏览器打开 http://127.0.0.1:8123/HEXACO测试_v1.0.2.html
 ```
 
 页面会按以下优先级确定题本，任何一级失败都安全回退到下一级：

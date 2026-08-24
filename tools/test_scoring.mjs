@@ -14,7 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const htmlPath = path.join(root, 'HEXACO测试_v1.0.1.html');
+const htmlPath = path.join(root, 'HEXACO测试_v1.0.2.html');
 const csvPath = path.join(root, 'HEXACO_items.csv');
 
 const html = readFileSync(htmlPath, 'utf8');
