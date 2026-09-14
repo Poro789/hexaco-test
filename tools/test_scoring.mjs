@@ -8,7 +8,7 @@
  * 续答、施测计时、质量旗标、dev 填充、提交流程。
  * 不覆盖：真实浏览器渲染（另见无头浏览器冒烟测试）。
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,28 @@ function makeEl(id) {
     scrollTo() {}, // 真实元素有；桩缺失会让 tryFinish 的滚动定位走 catch 分支
     click() { (this._listeners.click || []).slice().forEach(fn => fn.call(el, { type: 'click' })); },
     getBoundingClientRect() { return { top: 0, height: 0 }; },
+    // Canvas 2D 桩：记录绘制调用，供导出布局断言使用（不真实渲染）
+    width: 0,
+    height: 0,
+    getContext(kind) {
+      if (kind !== '2d') return null;
+      const ops = el.__ops = el.__ops || [];
+      const noop = () => {};
+      const ctx = {
+        __ops: ops,
+        canvas: el,
+        scale: noop, fillRect: noop, clearRect: noop, drawImage: noop,
+        beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop,
+        arc: noop, stroke: noop, fill: noop, save: noop, restore: noop,
+        setLineDash: noop, translate: noop, rotate: noop,
+        fillText(t, x, y) { ops.push({ op: 'fillText', text: String(t), x, y }); },
+        strokeText: noop,
+        measureText(t) { return { width: String(t).length * 6 }; },
+      };
+      // font/fillStyle/strokeStyle/lineWidth/textAlign/textBaseline/globalAlpha/lineJoin 直接当普通属性
+      return ctx;
+    },
+    toDataURL() { return 'data:image/png;base64,STUB'; },
   };
   return el;
 }
@@ -123,6 +145,8 @@ function makeWorld(opts = {}) {
     removeEventListener() {},
     matchMedia: () => ({ matches: false }),
     print() {},
+    // cssVar() 走 getComputedStyle；桩返回空串，让 cssVar 落到调用方给的兜底色
+    getComputedStyle: () => ({ getPropertyValue: () => '' }),
     // 真实浏览器有视口尺寸；缺失会让键盘作答的“最近题目”判定算出 NaN 而永不命中
     innerWidth: 1280,
     innerHeight: 900,
@@ -149,8 +173,16 @@ async function bootWorld(opts) {
 let pass = 0, fail = 0;
 const failures = [];
 function check(name, cond, extra) {
-  if (cond) { pass++; }
-  else { fail++; failures.push(name + (extra ? ' :: ' + extra : '')); console.error('  FAIL: ' + name + (extra ? ' :: ' + extra : '')); }
+  // 断言体常用 `return 条件 || '失败原因'` 的写法：失败时返回非空字符串，
+  // 而字符串是 truthy —— 若只判 truthy 就会把失败误记为通过。
+  // 因此显式排除字符串，让这类断言正确失败（原因仍由 extra 或返回值给出）。
+  const ok = typeof cond === 'string' ? false : !!cond;
+  if (ok) { pass++; }
+  else {
+    const why = typeof cond === 'string' ? cond : extra;
+    fail++; failures.push(name + (why ? ' :: ' + why : ''));
+    console.error('  FAIL: ' + name + (why ? ' :: ' + why : ''));
+  }
 }
 function section(t) { console.log('— ' + t); }
 
@@ -200,7 +232,7 @@ function section(t) { console.log('— ' + t); }
     const p = parseItemCsv(${csvJson});
     if (!p.ok) return 'parse: ' + p.error;
     const qSame = JSON.stringify(p.bank.questions) === JSON.stringify(questions);
-    const rSame = JSON.stringify(Array.from(p.bank.reverse).sort((a, b) => a - b)) === JSON.stringify(reverseScoredItems);
+    const rSame = JSON.stringify(Array.from(p.bank.reverse).sort((a, b) => a - b)) === JSON.stringify(reverseScoredItems.slice().sort((a, b) => a - b));
     let kSame = true;
     for (const f of FACTOR_ORDER) for (const fa of FACET_ORDER[f])
       if (JSON.stringify(p.bank.facets[f][fa]) !== JSON.stringify(scoringKeys[f][fa])) kSame = false;
@@ -358,11 +390,12 @@ function section(t) { console.log('— ' + t); }
     const svg = buildRadar(computeScores().factorScores, Object.keys(scoringKeys));
     const vb = (svg.match(/viewBox="([^"]+)"/) || [])[1];
     if (!vb) return 'no viewBox';
-    const [vx, vy, vw, vh] = vb.split(/[\\s,]+/).map(Number);
-    if ([vx, vy, vw, vh].some(n => !Number.isFinite(n))) return 'bad viewBox: ' + vb;
+    const parts = vb.split(' ').map(Number);
+    if (parts.length !== 4 || parts.some(n => !Number.isFinite(n))) return 'bad viewBox: ' + vb;
+    const [vx, vy, vw, vh] = parts;
     // 取所有标签 text 的坐标，须全部落在 viewBox 内（留 20 单位给字宽/字高）
-    const xs = [...svg.matchAll(/<text[^>]*\\bx="([-\d.]+)"/g)].map(m => +m[1]);
-    const ys = [...svg.matchAll(/<text[^>]*\\by="([-\d.]+)"/g)].map(m => +m[1]);
+    const xs = [...svg.matchAll(/<text[^>]*x="(-?[0-9.]+)"/g)].map(m => +m[1]);
+    const ys = [...svg.matchAll(/<text[^>]*y="(-?[0-9.]+)"/g)].map(m => +m[1]);
     if (xs.length < 6 || ys.length < 6) return 'too few labels: ' + xs.length + '/' + ys.length;
     const M = 20;
     const inside = (v, lo, hi) => v >= lo + M && v <= hi - M;
@@ -370,8 +403,30 @@ function section(t) { console.log('— ' + t); }
       || 'label outside viewBox vb=' + vb + ' xs=' + xs.map(v => v.toFixed(0)) + ' ys=' + ys.map(v => v.toFixed(0));
   })()`));
 
+  // PNG 概览卡：利他主义必须是独立成行（与六大领域同字号），且不得超出画布高度
+  check('A25 PNG 卡利他主义独立成行且不溢出', w.run(`(() => {
+    for (let i = 0; i < N_ITEMS; i++) answers[i] = 3;
+    lastScores = computeScores();
+    const cv = drawOverviewCard();
+    const ops = (cv.getContext('2d') && cv.__ops) || cv.__ops;
+    if (!ops || !ops.length) return 'no draw ops';
+    const H = cv.height / 2; // 2x 输出，逻辑高度
+    const texts = ops.filter(o => o.op === 'fillText');
+    const alt = texts.find(t => t.text.indexOf('利他主义') === 0);
+    if (!alt) return 'missing altruism label';
+    if (alt.text === '利他主义（居间量表）') return 'still crammed as footnote';
+    // 与六大领域标签同字号（14px 档），而非页脚小字
+    const domain = texts.find(t => t.text === factorZh[FACTOR_ORDER[0]]);
+    if (!domain) return 'missing domain label';
+    if (Math.abs(alt.y - domain.y) < 10) return 'altruism overlaps a domain row';
+    if (alt.y > H) return 'altruism below canvas: y=' + alt.y + ' H=' + H;
+    const footer = texts[texts.length - 1];
+    if (footer.y > H) return 'footer below canvas: y=' + footer.y + ' H=' + H;
+    return true;
+  })()`));
+
   // 「返回修改」：保留作答与施测元数据，仅回到答题屏
-  check('A25 返回修改保留作答与元数据', w.run(`(() => {
+  check('A26 返回修改保留作答与元数据', w.run(`(() => {
     for (let i = 0; i < N_ITEMS; i++) answers[i] = 4;
     meta = freshMeta(); meta.activeMs = 12345; meta.sessions = 2;
     renderResults();
@@ -386,7 +441,7 @@ function section(t) { console.log('— ' + t); }
   // 「返回修改」后重新提交应基于修改后的作答重新计分。
   // 注意：全答 1 时反向题按 6−1 折算成 5，领域分是 2.75 而非 1.00；
   // 要得到全 1.00 必须按反向标记作答（见 A5）。
-  check('A26 返回修改后可重新计分', w.run(`(() => {
+  check('A27 返回修改后可重新计分', w.run(`(() => {
     for (let i = 0; i < N_ITEMS; i++) answers[i] = reverseSet.has(i + 1) ? 5 : 1;
     page = TOTAL_PAGES - 1;
     renderPage();
@@ -396,7 +451,7 @@ function section(t) { console.log('— ' + t); }
   })()`));
 
   // 「重新测试」仍会清空（与返回修改形成对照）
-  check('A27 重新测试清空作答', w.run(`(() => {
+  check('A28 重新测试清空作答', w.run(`(() => {
     document.getElementById('restartBtn').click();
     return document.getElementById('welcome').classList.contains('active')
       && lastScores === null && answers.every(v => v === 0);
@@ -406,7 +461,7 @@ function section(t) { console.log('— ' + t); }
   // 桩的 querySelectorAll 恒返回 []，这里在沙箱内注入一个假题目；
   // 注意：不能用 document.querySelectorAll.bind(document) 保存原函数——
   // document 是沙箱全局而非词域内变量，bind 会抛 ReferenceError。
-  check('A28 数字键作答移动焦点', w.run(`(() => {
+  check('A29 数字键作答移动焦点', w.run(`(() => {
     const calls = [];
     const fakeInput = {
       checked: false,
@@ -459,6 +514,53 @@ function section(t) { console.log('— ' + t); }
   vm.runInContext(code, w2.sandbox, { filename: 'hexaco-inline.js' });
   await w2.tick();
   check('D3 坏导入被清除并兜底', w2.run('itemsSource') === 'builtin' && w2.storage.get('hexaco_items_csv_v1') === undefined);
+}
+
+/* ---------------- 场景 E：静态资源与页面元数据 ---------------- */
+{
+  section('E: 页面元数据 / favicon / 发布清单');
+  const pages = ['index.html', 'test.html', '404.html'];
+  const src = Object.fromEntries(pages.map(f => [f, readFileSync(path.join(root, f), 'utf8')]));
+
+  for (const f of pages) {
+    const h = src[f];
+    check(`E ${f} 有内联 SVG favicon`, /rel="icon" href="data:image\/svg\+xml,/.test(h));
+    check(`E ${f} favicon 无裸 # 且标签配对`, (() => {
+      const m = h.match(/rel="icon" href="data:image\/svg\+xml,([^"]+)"/);
+      if (!m) return 'no favicon';
+      const raw = m[1];
+      if (raw.replace(/%23/g, '').includes('#')) return 'bare # truncates data URI';
+      const svg = decodeURIComponent(raw);
+      const open = (svg.match(/<(?:svg|polygon)\b/g) || []).length;
+      const close = (svg.match(/<\/svg>/g) || []).length + (svg.match(/\/>/g) || []).length;
+      return (open === close && svg.startsWith('<svg') && svg.endsWith('</svg>')) || `unbalanced ${open}/${close}`;
+    })());
+    check(`E ${f} 有 theme-color`, h.includes('name="theme-color"'));
+  }
+
+  // 落地页与测试页需要分享卡片；404 不需要
+  for (const f of ['index.html', 'test.html']) {
+    const h = src[f];
+    const need = ['og:type', 'og:title', 'og:description', 'og:url', 'twitter:card'];
+    const miss = need.filter(k => !h.includes(k));
+    check(`E ${f} og/twitter 完整`, miss.length === 0 || '缺: ' + miss.join(','));
+  }
+
+  // 落地页入口必须指向存在的文件（改名时最容易漏）
+  const cta = (src['index.html'].match(/class="cta" href="([^"]+)"/) || [])[1];
+  check('E 落地页 CTA 指向真实文件', !!cta && existsSync(path.join(root, cta)) || 'cta=' + cta);
+  const csvHref = (src['index.html'].match(/href="(items\.csv)"/) || [])[1];
+  check('E 落地页题本链接指向真实文件', !!csvHref && existsSync(path.join(root, csvHref)) || 'csv=' + csvHref);
+
+  // CI 发布清单里的文件都必须存在
+  const yml = readFileSync(path.join(root, '.github/workflows/pages.yml'), 'utf8');
+  const cpLine = (yml.match(/cp ([^\n]+) _site\//) || [])[1];
+  check('E CI 有显式 cp 清单', !!cpLine || '未找到 cp 清单');
+  if (cpLine) {
+    const missing = cpLine.trim().split(/\s+/).filter(f => !existsSync(path.join(root, f)));
+    check('E CI 清单文件齐全', missing.length === 0 || '缺: ' + missing.join(','));
+  }
+  check('E CI 部署前跑自测', yml.includes('node tools/test_scoring.mjs') && yml.includes('needs: test'));
 }
 
 /* ---------------- 汇总 ---------------- */

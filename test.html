@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="HEXACO 人格测试评分工具 —— 基于 HEXACO-PI-R 100 题版本，测量诚实-谦逊、情绪性、外向性、宜人性、尽责性、经验开放性六大维度。">
     <title>HEXACO 人格测试</title>
+
+    <!-- 分享卡片 -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="HEXACO 人格测试">
+    <meta property="og:title" content="HEXACO 人格测试（100 题）">
+    <meta property="og:description" content="基于 HEXACO-PI-R 100 题自评量表：六大维度、24 个侧面、雷达图与 PDF/PNG 导出。数据只保存在你的浏览器。">
+    <meta property="og:url" content="https://poro789.github.io/hexaco-test/test.html">
+    <meta property="og:locale" content="zh_CN">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="HEXACO 人格测试（100 题）">
+    <meta name="twitter:description" content="六大维度、24 个侧面、雷达图与 PDF/PNG 导出。零依赖、无追踪，数据不出本机。">
+
+    <!-- 内联 SVG favicon：与落地页同一图标，零额外请求 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5' fill='none' stroke='%231c1c1a' stroke-width='2'/%3E%3Cpolygon points='16,9 22,12.5 20,20 16,23 10,19 12,12' fill='%235b9a8b' fill-opacity='.35' stroke='%235b9a8b' stroke-width='2'/%3E%3C/svg%3E">
+    <meta name="theme-color" content="#f7f7f4" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)">
     <style>
         :root {
             --bg: #f7f7f4;
@@ -283,7 +299,7 @@
 
         /* 雷达图 */
         .radar-card { padding: 24px 20px 12px; margin-bottom: 40px; }
-        .radar-svg { display: block; width: 100%; height: auto; max-width: 460px; margin: 0 auto; }
+        .radar-svg { display: block; width: 100%; height: auto; max-width: 500px; margin: 0 auto; }
         .radar-grid { fill: none; stroke: var(--hairline); stroke-width: 1; }
         .radar-axis { stroke: var(--hairline); stroke-width: 1; }
         .radar-shape { fill: color-mix(in srgb, var(--ink) 8%, transparent); stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
@@ -1297,6 +1313,10 @@
 
     function buildRadar(factorScores, factors) {
         const size = 320, cx = size / 2, cy = size / 2, R = 118;
+        // viewBox 比绘图区四周各宽 PAD，用于容纳落在顶点外侧的标签。
+        // 标签字号在 CSS 里是 px（真实像素，不随 viewBox 缩放），
+        // 所以窄屏下 svg 变小时图形缩小而文字保持可读，不会被裁掉。
+        const PAD = 46;
         const n = factors.length;
         const angle = i => (-Math.PI / 2) + (i * 2 * Math.PI / n);
         const pt = (i, r) => [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))];
@@ -1335,7 +1355,7 @@
                 '<text class="radar-label-score tnum" x="' + x.toFixed(1) + '" y="' + (y + 15).toFixed(1) + '" text-anchor="' + anchor + '">' + factorScores[f] + '</text>';
         });
 
-        return '<svg class="radar-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="六维雷达图">' +
+        return '<svg class="radar-svg" viewBox="' + (-PAD) + ' ' + (-PAD) + ' ' + (size + PAD * 2) + ' ' + (size + PAD * 2) + '" role="img" aria-label="六维雷达图">' +
             grid + axes +
             '<polygon class="radar-shape" points="' + shapePts + '"/>' +
             verts + labels +
@@ -1467,7 +1487,8 @@
 
         const rowH = 46, pad = 44;
         const radarSize = 360;
-        let H = 40 + 22 + 34 + 26 + radarSize + 16 + factors.length * rowH + 40 + 44 + 30;
+        // 高度预算：眉标30 + 标题24 + 时间14 + 雷达(+10) + 六领域行 + 利他独立行(52) + 间距10 + 页脚 + 底部留白
+        let H = 40 + 22 + 34 + 26 + radarSize + 16 + factors.length * rowH + 52 + 10 + 34 + 26;
 
         const cv = document.createElement('canvas');
         cv.width = W * S; cv.height = H * S;
@@ -1508,14 +1529,24 @@
         });
         ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
 
-        y += 28;
-        ctx.textAlign = 'left';
-        ctx.font = '400 12px ' + font; ctx.fillStyle = muted;
-        ctx.fillText('利他主义（居间量表）', pad, y);
-        ctx.font = '600 14px ' + font; ctx.fillStyle = ink;
-        ctx.fillText(lastScores.altruism, pad + 138, y);
+        // 利他主义：与六大领域同规格的独立行（居间量表，用虚线点与领域区分），
+        // 不再挤在页脚上方当小字注脚。
+        {
+            const cyy = y + 34;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath(); ctx.arc(pad + 5, cyy - 4, 4.5, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.textAlign = 'left';
+            ctx.font = '500 14px ' + font; ctx.fillStyle = ink;
+            ctx.fillText('利他主义', pad + 18, cyy);
+            ctx.font = '600 16px ' + font; ctx.fillStyle = ink;
+            ctx.fillText(lastScores.altruism, pad + 108, cyy + 1);
+            ctx.font = '400 10.5px ' + font; ctx.fillStyle = muted;
+            ctx.fillText('居间量表 · 不计入六大领域分', pad + 158, cyy);
+            y += 52;
+        }
 
-        y += 34;
+        y += 10;
         ctx.textAlign = 'center';
         ctx.font = '400 10px ' + font; ctx.fillStyle = faint;
         ctx.fillText('分数范围 1–5，仅为原始分数，不含分析或价值判断 · 本工具不能替代专业心理评估', W / 2, y);
