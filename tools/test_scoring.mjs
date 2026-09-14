@@ -14,8 +14,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const htmlPath = path.join(root, 'HEXACO测试_v1.0.2.html');
-const csvPath = path.join(root, 'HEXACO_items.csv');
+const htmlPath = path.join(root, 'test.html');
+const csvPath = path.join(root, 'items.csv');
 
 const html = readFileSync(htmlPath, 'utf8');
 const sm = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -59,6 +59,7 @@ function makeEl(id) {
     querySelectorAll() { return []; },
     focus() {},
     select() {},
+    scrollTo() {}, // 真实元素有；桩缺失会让 tryFinish 的滚动定位走 catch 分支
     click() { (this._listeners.click || []).slice().forEach(fn => fn.call(el, { type: 'click' })); },
     getBoundingClientRect() { return { top: 0, height: 0 }; },
   };
@@ -122,6 +123,9 @@ function makeWorld(opts = {}) {
     removeEventListener() {},
     matchMedia: () => ({ matches: false }),
     print() {},
+    // 真实浏览器有视口尺寸；缺失会让键盘作答的“最近题目”判定算出 NaN 而永不命中
+    innerWidth: 1280,
+    innerHeight: 900,
   };
   sandbox.window = sandbox;
   if (opts.fetchImpl) sandbox.fetch = opts.fetchImpl;
@@ -333,6 +337,92 @@ function section(t) { console.log('— ' + t); }
     const hi = devFill('high'); if (!hi.every(v => v === 5)) return 'high';
     const lo = devFill('low'); if (!lo.every(v => v === 1)) return 'low';
     return true;
+  })()`));
+
+  // ---- 本次改动新增断言 ----
+
+  // Ctrl+P 空页修复：renderResults 必须预填充 #printReport
+  check('A23 renderResults 预填充打印报告', w.run(`(() => {
+    document.getElementById('printReport').innerHTML = '';
+    for (let i = 0; i < N_ITEMS; i++) answers[i] = 3;
+    renderResults();
+    const h = document.getElementById('printReport').innerHTML;
+    return h.includes('HEXACO 人格测试报告') && h.includes('计分方法与使用说明');
+  })()`));
+
+  // 雷达图 viewBox 必须给外侧标签留出空间：
+  // 标签字号是 CSS px（不随 viewBox 缩放），若 viewBox 只包住绘图区，
+  // 窄屏下 svg 等比缩小会把标签裁掉。这里锁定 viewBox 覆盖所有标签坐标。
+  check('A24 雷达 viewBox 覆盖标签不被裁切', w.run(`(() => {
+    for (let i = 0; i < N_ITEMS; i++) answers[i] = 3;
+    const svg = buildRadar(computeScores().factorScores, Object.keys(scoringKeys));
+    const vb = (svg.match(/viewBox="([^"]+)"/) || [])[1];
+    if (!vb) return 'no viewBox';
+    const [vx, vy, vw, vh] = vb.split(/[\\s,]+/).map(Number);
+    if ([vx, vy, vw, vh].some(n => !Number.isFinite(n))) return 'bad viewBox: ' + vb;
+    // 取所有标签 text 的坐标，须全部落在 viewBox 内（留 20 单位给字宽/字高）
+    const xs = [...svg.matchAll(/<text[^>]*\\bx="([-\d.]+)"/g)].map(m => +m[1]);
+    const ys = [...svg.matchAll(/<text[^>]*\\by="([-\d.]+)"/g)].map(m => +m[1]);
+    if (xs.length < 6 || ys.length < 6) return 'too few labels: ' + xs.length + '/' + ys.length;
+    const M = 20;
+    const inside = (v, lo, hi) => v >= lo + M && v <= hi - M;
+    return xs.every(x => inside(x, vx, vx + vw)) && ys.every(y => inside(y, vy, vy + vh))
+      || 'label outside viewBox vb=' + vb + ' xs=' + xs.map(v => v.toFixed(0)) + ' ys=' + ys.map(v => v.toFixed(0));
+  })()`));
+
+  // 「返回修改」：保留作答与施测元数据，仅回到答题屏
+  check('A25 返回修改保留作答与元数据', w.run(`(() => {
+    for (let i = 0; i < N_ITEMS; i++) answers[i] = 4;
+    meta = freshMeta(); meta.activeMs = 12345; meta.sessions = 2;
+    renderResults();
+    document.getElementById('editBtn').click();
+    return document.getElementById('test').classList.contains('active')
+      && !document.getElementById('result').classList.contains('active')
+      && answers.every(v => v === 4)
+      && meta.activeMs === 12345 && meta.sessions === 2
+      && lastScores === null;
+  })()`));
+
+  // 「返回修改」后重新提交应基于修改后的作答重新计分。
+  // 注意：全答 1 时反向题按 6−1 折算成 5，领域分是 2.75 而非 1.00；
+  // 要得到全 1.00 必须按反向标记作答（见 A5）。
+  check('A26 返回修改后可重新计分', w.run(`(() => {
+    for (let i = 0; i < N_ITEMS; i++) answers[i] = reverseSet.has(i + 1) ? 5 : 1;
+    page = TOTAL_PAGES - 1;
+    renderPage();
+    document.getElementById('nextBtn').click();
+    return document.getElementById('result').classList.contains('active')
+      && Object.values(lastScores.factorScores).every(v => v === '1.00');
+  })()`));
+
+  // 「重新测试」仍会清空（与返回修改形成对照）
+  check('A27 重新测试清空作答', w.run(`(() => {
+    document.getElementById('restartBtn').click();
+    return document.getElementById('welcome').classList.contains('active')
+      && lastScores === null && answers.every(v => v === 0);
+  })()`));
+
+  // 数字键作答后焦点移到被选中的控件（屏幕阅读器可播报）
+  // 桩的 querySelectorAll 恒返回 []，这里在沙箱内注入一个假题目；
+  // 注意：不能用 document.querySelectorAll.bind(document) 保存原函数——
+  // document 是沙箱全局而非词域内变量，bind 会抛 ReferenceError。
+  check('A28 数字键作答移动焦点', w.run(`(() => {
+    const calls = [];
+    const fakeInput = {
+      checked: false,
+      focus(o) { calls.push('focus:' + JSON.stringify(o)); },
+      dispatchEvent(ev) { calls.push('change:' + ev.type); }
+    };
+    const fakeQ = { querySelector: () => fakeInput, getBoundingClientRect: () => ({ top: 100, height: 40 }) };
+    const orig = document.querySelectorAll;
+    document.querySelectorAll = (sel) => (sel === '.question' ? [fakeQ] : []);
+    try {
+      document.getElementById('test').classList.add('active');
+      document.__listeners.keydown[0]({ key: '3' });
+    } finally { document.querySelectorAll = orig; }
+    // 必须先 focus 再 change，顺序错了播报内容就是上一题
+    return fakeInput.checked === true
+      && calls.length === 2 && calls[0].startsWith('focus:') && calls[1] === 'change:change';
   })()`));
 }
 

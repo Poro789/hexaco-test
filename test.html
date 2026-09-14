@@ -206,13 +206,13 @@
             position: relative;
             display: flex; justify-content: space-between; align-items: center;
             max-width: 460px; margin: 0 auto;
-            padding: 0 6px;
+            padding: 0 13px;
         }
         .scale::before {
-            content: ""; position: absolute; left: 22px; right: 22px; top: 50%;
+            content: ""; position: absolute; left: 29px; right: 29px; top: 50%;
             height: 1px; background: var(--hairline-strong); transform: translateY(-50%);
         }
-        .dot { position: relative; }
+        .dot { position: relative; padding: 7px; }
         .dot input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
         .pip {
             display: grid; place-items: center;
@@ -247,7 +247,10 @@
             border-top: 1px solid var(--hairline);
         }
         .navbar-inner {
-            max-width: var(--page-w); margin: 0 auto; padding: 14px 24px;
+            max-width: var(--page-w); margin: 0 auto;
+            padding: 14px 24px;
+            /* iOS Home 指示条 / 安卓手势区：底部留出自适应安全区 */
+            padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
             display: flex; align-items: center; justify-content: space-between; gap: 14px;
         }
         .navbar .page-label { font-size: .82rem; color: var(--muted); }
@@ -424,7 +427,7 @@
             <h1 class="welcome-title">六维<b>人格</b>测试</h1>
             <p class="welcome-sub">用 <span id="welcomeCount">100</span> 道题，看清你的六个侧面</p>
             <div class="welcome-meta">
-                <span>约 20 分钟</span><span>完全离线</span><span>数据不出本机</span>
+                <span>约 20 分钟</span><span>无需注册</span><span>数据不出本机</span>
             </div>
             <div class="welcome-actions" id="welcomeActions">
                 <button class="btn btn-primary" id="startBtn">开始测试</button>
@@ -500,6 +503,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     复制文字
                 </button>
+                <button class="btn btn-ghost" id="editBtn">返回修改</button>
                 <button class="btn btn-ghost" id="restartBtn">重新测试</button>
             </div>
         </div>
@@ -537,8 +541,8 @@
        ============================================================ */
 
     /* ---------- 1. 内置题本与评分键 ----------
-       内置题本是“兜底快照”：双击打开（file://）或外部 CSV 无法读取/校验时
-       使用内置题本。要改题本请优先编辑同目录的 HEXACO_items.csv（见 README）。 */
+       内置题本是“兜底快照”：外部 CSV 读取失败或校验不通过时
+       使用内置题本。要改题本请优先编辑同目录的 items.csv（见 README）。 */
     let questions = [
         "我觉得参观美术馆很无聊。","我经常清理自己的办公室或居家环境。","我很少有怨恨，即使面对那些对我很坏的人。","整体而言我对自己还算满意。","如果我必须在恶劣天气下出行，我会感到害怕。","如果我想从我讨厌的人那里得到点什么，我会假装对那个人很友善。","我喜欢去学习外国的历史和政治。","工作时，我常为自己定下高远的目标。","有时候别人告诉我，我对别人太挑剔。","在团体讨论中，我很少表达自己的意见。","在一些时候，我会不由自主地为一些小事而感到焦躁不安。","如果知道自己永远不会被抓，我会愿意去偷一百万元人民币。","我喜欢做遵照惯例、简单重复的工作，而不是需要创意的工作。","为了找出任何可能的错误，我会反复检查自己的工作。","有时候别人认为我太顽固。","我常常会避免跟别人闲聊。","当我遭遇到痛苦的经历时，我需要别人的安慰。","对我来说，拥有很多金钱不是特别重要。","我认为关注标新立异的想法是在浪费时间。","我在做决定的时候常常依赖自己当时的感受，而不会去仔细思考和比较得失。","别人认为我是一个很暴躁的人。","几乎所有时候我都精力充沛。","看到别人哭时，我也会想哭。","我认为自己是个普普通通的人，并不比别人优秀。","我不愿花时间去阅读诗集。","我会在事前计划和组织要做的事，避免最后一分钟手忙脚乱。","面对那些对我很坏的人，我的态度通常是“原谅与忘记”。","我认为大多数人喜欢我性格中的某些方面。","我不介意去做一些有危险性的工作。","即使讨好奉迎能帮我加薪或晋升，我也不会这么做。","我喜欢看不同地方的地图。","为了达到目标，我通常把自己逼得很紧。","我通常能接受别人的缺点，而不去抱怨。","在社交场合里，我通常是那个先主动开口攀谈的人。","比起大多数人，我担心的事少了很多。","如果经济拮据，我可能会经受不住诱惑去购买赃物。","我喜欢从事艺术创作，例如，写小说、写歌、绘画。","做事时，我往往不太注意小细节。","当别人不同意我的时候，我通常能让自己的意见保持相当的弹性。","我喜欢身边常有人可以一起说说话。","我可以面对困难的处境而不需要任何人的情感支持。","我希望能够住在一个很昂贵而且很高级的社区。","我喜欢那些对事情有独特见解的人。","我因采取行动前没有仔细思考而犯下很多错误。","即使别人对待我很差，我也很少生气。","大多数日子里，我都感到愉快和乐观。","当与我很亲近的人不开心的时候，我往往会感同身受。","我不希望别人把我当成比他们高人一等的人来对待。","如果我有机会，我会想去参加古典音乐会。","别人时常拿我房间或桌子的凌乱开玩笑。","如果有人欺骗过我一次，我以后都会怀疑这人。","我觉得自己是个不受欢迎的人。","面对可能使身体受伤的险境，我会很害怕。","如果我想从某人那里得到点什么，即使他讲的笑话再难听，我也会跟着大笑。","我觉得关于科学史和科技史的书都很无趣。","我为自己定下的目标，常常最后未完成就放弃。","评价别人的时候，我通常比较宽厚。","在团体中，我常是那个代表团体说话的人。","我几乎从不因为压力或焦虑而失眠。","即使很有价值或金额很大，我也绝不会接受贿赂。","别人经常说我有很好的想象力。","为了工作准确无误，我不惜花很多时间。","当别人说我错了的时候，通常我的第一个反应就是跟他们争辩。","比起独自工作，我更喜欢需要频繁与人打交道的工作。","每当我忧心某些事，我总想跟别人说说自己的忧虑。","我想让别人看到我开着名贵的轿车。","我觉得自己算是一个有点古怪的人。","我不会因为冲动而做出不理智的行为。","大多数的人比我容易生气。","别人常常对我说，我应该试着快乐起来。","当亲近的人要离开一段很长的时间，我会有很深的感伤。","我认为我比一般人更有资格得到更多尊重。","有时候，我喜欢静静地看着微风拂动树叶。","在工作上，我有时候会因为没有事先进行很好的计划而遇到困难。","我觉得很难完全原谅曾对我刻薄的人。","我有时会觉得自己一文不值。","即使面对危急情况，我不会感觉到惊慌。","我不会为了让别人帮我做事而假装喜欢对方。","翻阅百科全书这件事，我从没真正喜欢过。","在工作上，我基本上只做应付过去所需的最低限度工作。","即使在别人犯了很多错误的时候，我也很少说难听的话。","在一群人面前说话，我会感到非常不自然。","在等待一些重大决定的结果时，我会变得非常焦躁。","如果我确定绝不会被抓到，我会禁不住诱惑使用伪钞。","我不认为自己是那种有艺术天赋或创意的人。","别人常说我是个完美主义者。","当我坚信自己是正确的时候，我觉得自己很难去跟人妥协。","通常我到新环境做的第一件事就是交新朋友。","我很少跟别人讨论自己的问题。","如果有机会可以拥有昂贵的奢侈品，我会获得很大的快乐。","我觉得讨论哲学很乏味。","我喜欢想到什么就做什么，不喜欢按计划行事。","当有人侮辱我时，我觉得很难去控制自己的脾气。","大多数人都比平常的我要更乐观和更有活力。","即使在会让大多数人变得很感伤的情境中，我仍可不动情感。","我想让别人知道我是个地位高的重要人物。","我会同情那些比我更不幸的人。","我会慷慨地为那些有需要的人提供帮助。","伤害一个我不喜欢的人，我也不会觉得不安。","别人觉得我是个心肠很硬的人。"
     ];
@@ -678,11 +682,11 @@
     const CONFIG = {
         toolId: 'HEXACO-PI-R-100-zh',
         toolName: 'HEXACO 人格测试',
-        toolVersion: '1.0',
+        toolVersion: '1.0.3',
         filePrefix: 'HEXACO',
         storagePrefix: 'hexaco',
-        /* 外部题本 CSV（与 HTML 同目录；需 http 方式打开才生效，见 README） */
-        itemsCsv: 'HEXACO_items.csv',
+        /* 外部题本 CSV（与 HTML 同目录，经 GitHub Pages 同源加载） */
+        itemsCsv: 'items.csv',
         likertPoints: 5,
         likertLabels: optionLabels,
         anchorLow: '极不同意',
@@ -701,7 +705,7 @@
        题本文件 schema（UTF-8 带 BOM，Excel 可直接编辑）：
          题号,题目,领域,侧面,反向计分
        领域/侧面可用中文或英文名；反向计分 0/1；固定 100 行。
-       加载优先级：同目录 CSV（需 http 打开）> dev 导入（localStorage）> 内置题本。
+       加载优先级：同目录 CSV（同源加载）> dev 导入（localStorage）> 内置题本。
        ============================================================ */
     const ITEMS_CSV_KEY = CONFIG.storagePrefix + '_items_csv_v1';
     const CSV_HEADER = ['题号', '题目', '领域', '侧面', '反向计分'];
@@ -826,7 +830,7 @@
                     showToast('题本 CSV 校验失败（' + p.error + '），已使用内置题本');
                     return; // 部署的 CSV 有问题时不用本地导入顶替，直接兜底并提示
                 }
-            } catch (e) { /* file:// 或文件不存在：继续下一级 */ }
+            } catch (e) { /* 离线打开、题本文件缺失等：继续下一级 */ }
         }
         try {
             const raw = localStorage.getItem(ITEMS_CSV_KEY);
@@ -1207,7 +1211,13 @@
             });
             if (focusQ) {
                 const input = focusQ.querySelector('input[value="' + k + '"]');
-                if (input) { input.checked = true; input.dispatchEvent(new Event('change')); }
+                if (input) {
+                    input.checked = true;
+                    // 先移焦点再派发 change：屏幕阅读器能播报“第 N 题 已选 X”，
+                    // 否则焦点始终停在第一题，键盘作答全程无反馈。
+                    try { input.focus({ preventScroll: true }); } catch (e) {}
+                    input.dispatchEvent(new Event('change'));
+                }
             }
         } else if (e.key === 'ArrowRight') {
             document.getElementById('nextBtn').click();
@@ -1277,6 +1287,10 @@
                 el.style.width = el.dataset.w;
             });
         });
+
+        // 预填充打印报告：用户直接按 Ctrl+P / 浏览器菜单打印时也能拿到完整报告，
+        // 而不是空白页（@media print 会隐藏所有 .screen，只留 #printReport）。
+        try { buildPrintReport(); } catch (e) { /* 报告构建失败不影响结果页 */ }
     }
 
     function pct(score) { return ((parseFloat(score) - 1) / 4) * 100; }
@@ -1661,6 +1675,13 @@
         document.body.removeChild(ta);
     }
 
+    document.getElementById('editBtn').addEventListener('click', () => {
+        // 保留全部作答与施测元数据，只回到答题屏；
+        // 改答会经 change 处理器记 changes 并 saveProgress，结果页可再次生成。
+        lastScores = null;
+        enterTest();
+    });
+
     document.getElementById('restartBtn').addEventListener('click', () => {
         answers = new Array(N_ITEMS).fill(0);
         page = 0;
@@ -1753,12 +1774,12 @@
                 '<button data-mode="resetcsv" class="wide">恢复内置题本</button>' +
             '</div>' +
             '<p class="dev-note">前五项直接生成结果页（验证展示/复制/导图）；「末页」验证提交校验；' +
-            '「导入题本 CSV…」读取本地 CSV 并保存（file:// 下也生效）；「恢复内置题本」清除并刷新。<br>' +
+            '「导入题本 CSV…」读取本地 CSV 并保存（用于测试题本替换流程）；「恢复内置题本」清除并刷新。<br>' +
             '<span id="devSrc"></span></p>';
         document.body.appendChild(p);
         p.querySelector('.dev-close').addEventListener('click', () => p.classList.remove('show'));
 
-        // 题本 CSV 本地导入（file:// 下无需服务器也能换题本）
+        // 题本 CSV 本地导入（QA：验证题本替换与校验流程）
         const file = document.createElement('input');
         file.type = 'file'; file.accept = '.csv,text/csv'; file.style.display = 'none';
         file.addEventListener('change', () => {

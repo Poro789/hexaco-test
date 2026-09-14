@@ -10,8 +10,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: 逻辑自测
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 运行自测（失败则不部署）
+        run: node tools/test_scoring.mjs
+
   deploy:
     name: 部署到 GitHub Pages
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -21,11 +33,15 @@ jobs:
       id-token: write   # 校验部署来源
     steps:
       - uses: actions/checkout@v4
+      - name: 组装站点目录（显式清单，排除 .doc 原始材料）
+        run: |
+          mkdir -p _site
+          cp index.html test.html items.csv 404.html LICENSE _site/
       - uses: actions/configure-pages@v5
-      - name: 上传站点内容（仓库根目录，静态文件）
+      - name: 上传站点内容
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - name: 部署
         id: deployment
         uses: actions/deploy-pages@v4
