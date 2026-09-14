@@ -70,12 +70,41 @@
 <body>
     <div class="box">
         <span class="code">404</span>
-        <h1>这个页面不存在</h1>
-        <p>链接可能过期或输入有误。测试本身仍在原处，可直接前往。</p>
+        <h1 id="title">这个页面不存在</h1>
+        <p id="msg">链接可能过期或输入有误。测试本身仍在原处，可直接前往。</p>
         <div class="actions">
             <a class="btn primary" href="/hexaco-test/test.html">开始测试</a>
             <a class="btn ghost" href="/hexaco-test/">返回落地页</a>
         </div>
     </div>
+
+    <script>
+        /* v1.0.3 起主文件改名为 test.html、题本改为 items.csv（去掉 URL 里的中文
+           百分号编码）。GitHub Pages 对任意缺失路径都返回本文件，故可在此按
+           pathname 精确重定向已知的旧地址。用 location.replace 而非 href：
+           旧地址不留在历史里，返回键不会又跳回 404。
+           基准路径由本文件自身位置推导，因此本地挂在 / 或线上挂在 /hexaco-test/
+           都能正确工作，不硬编码子路径。 */
+        (function () {
+            var OLD = {
+                'HEXACO测试_v1.0.2.html': 'test.html',
+                'HEXACO测试_v1.0.1.html': 'test.html',
+                'HEXACO测试_v1.0.0.html': 'test.html',
+                'HEXACO_items.csv': 'items.csv'
+            };
+            var here = location.pathname;
+            var base = here.slice(0, here.lastIndexOf('/') + 1); // 本文件所在目录
+            var decoded;
+            try { decoded = decodeURIComponent(here); } catch (e) { decoded = here; }
+            var name = decoded.slice(decoded.lastIndexOf('/') + 1);
+            if (OLD[name]) {
+                location.replace(location.origin + base + OLD[name] + location.search + location.hash);
+                return;
+            }
+            // 未命中：真正不存在的地址，措辞上给出上下文
+            document.getElementById('msg').textContent =
+                '未找到 ' + decoded + '。链接可能过期或输入有误，测试本身仍在原处。';
+        })();
+    </script>
 </body>
 </html>

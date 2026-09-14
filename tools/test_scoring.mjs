@@ -382,9 +382,9 @@ function section(t) { console.log('— ' + t); }
     return h.includes('HEXACO 人格测试报告') && h.includes('计分方法与使用说明');
   })()`));
 
-  // 雷达图 viewBox 必须给外侧标签留出空间：
-  // 标签字号是 CSS px（不随 viewBox 缩放），若 viewBox 只包住绘图区，
-  // 窄屏下 svg 等比缩小会把标签裁掉。这里锁定 viewBox 覆盖所有标签坐标。
+  // 雷达图标签坐标必须落在 viewBox 内，否则会被裁切。
+  // 注：SVG 里的 CSS px 字号不随 viewBox 缩放，所以窄屏下标签始终是 12px，
+  // 本断言只锁「不被裁切」这一真实约束，不假设字号会随宽度变化。
   check('A24 雷达 viewBox 覆盖标签不被裁切', w.run(`(() => {
     for (let i = 0; i < N_ITEMS; i++) answers[i] = 3;
     const svg = buildRadar(computeScores().factorScores, Object.keys(scoringKeys));
@@ -397,7 +397,9 @@ function section(t) { console.log('— ' + t); }
     const xs = [...svg.matchAll(/<text[^>]*x="(-?[0-9.]+)"/g)].map(m => +m[1]);
     const ys = [...svg.matchAll(/<text[^>]*y="(-?[0-9.]+)"/g)].map(m => +m[1]);
     if (xs.length < 6 || ys.length < 6) return 'too few labels: ' + xs.length + '/' + ys.length;
-    const M = 20;
+    // 余量取 4：只需覆盖 12px 字号的下伸部（约 3px）。
+    // 原始代码底部只剩 3 单位，属贴边侥幸；PAD=8 后余量 11，留 4 作门槛。
+    const M = 4;
     const inside = (v, lo, hi) => v >= lo + M && v <= hi - M;
     return xs.every(x => inside(x, vx, vx + vw)) && ys.every(y => inside(y, vy, vy + vh))
       || 'label outside viewBox vb=' + vb + ' xs=' + xs.map(v => v.toFixed(0)) + ' ys=' + ys.map(v => v.toFixed(0));
@@ -560,7 +562,36 @@ function section(t) { console.log('— ' + t); }
     const missing = cpLine.trim().split(/\s+/).filter(f => !existsSync(path.join(root, f)));
     check('E CI 清单文件齐全', missing.length === 0 || '缺: ' + missing.join(','));
   }
-  check('E CI 部署前跑自测', yml.includes('node tools/test_scoring.mjs') && yml.includes('needs: test'));
+  // CI 必须在部署前跑自测：接受 `npm test` 或直接调脚本两种写法，
+  // 但 deploy 必须 needs 到 test（门禁真实生效，不是并列跑）
+  const testGate = /run:\s*(npm test|node tools\/test_scoring\.mjs)/.test(yml);
+  const deployNeeds = /needs:\s*(\[.*\btest\b.*\]|\btest\b)/.test(yml);
+  check('E CI 部署前跑自测', (testGate && deployNeeds) || `testGate=${testGate} deployNeeds=${deployNeeds}`);
+
+  // job 依赖链：deploy 必须同时 needs test 与 smoke（冒烟测试也是门禁）
+  {
+    const jobs = [...yml.replace(/\r\n/g, '\n').matchAll(/^ {2}([A-Za-z][\w-]*):$/gm)].map(m => m[1]);
+    const missing = ['test', 'smoke', 'deploy'].filter(j => !jobs.includes(j));
+    check('E CI 三个 job 齐全', missing.length === 0 || '缺: ' + missing.join(','));
+    const deployIdx = yml.indexOf('  deploy:');
+    const needsLine = yml.slice(deployIdx, deployIdx + 400).match(/needs:\s*([^\n]+)/);
+    const list = needsLine ? needsLine[1].replace(/[[\]]/g, '').split(',').map(s => s.trim()) : [];
+    check('E deploy needs test+smoke',
+      (list.includes('test') && list.includes('smoke')) || 'needs=' + list.join(','));
+    // needs 引用的 job 必须真实存在
+    const allNeeds = [...yml.matchAll(/needs:\s*(\[[^\]]*\]|[\w-]+)/g)]
+      .flatMap(m => (m[1].startsWith('[') ? m[1].slice(1, -1).split(',') : [m[1]]).map(s => s.trim()));
+    const dangling = allNeeds.filter(j => !jobs.includes(j));
+    check('E needs 引用有效', dangling.length === 0 || '悬空: ' + dangling.join(','));
+  }
+
+  // action 版本：v4 及更早的官方 action 仍跑在已弃用的 Node 20 上，会产生告警
+  {
+    const uses = [...yml.matchAll(/uses:\s*(actions\/[\w-]+)@v(\d+)/g)];
+    const stale = uses.filter(([, , v]) => +v < 5).map(([, n, v]) => `${n}@v${v}`);
+    check('E 官方 action 不低于 v5（避开 Node20 弃用告警）',
+      stale.length === 0 || '偏旧: ' + stale.join(','));
+  }
 }
 
 /* ---------------- 汇总 ---------------- */

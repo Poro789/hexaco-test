@@ -8,8 +8,12 @@ desktop.ini
 .idea/
 *.swp
 
-# 依赖（tools/ 仅使用 Node 内置模块，暂无依赖，预防性忽略）
+# 依赖（Playwright 仅用于冒烟测试；package-lock.json 需入库以固定版本）
 node_modules/
+
+# Playwright 测试产物
+test-results/
+playwright-report/
 
 # 本地临时文件
 *.tmp

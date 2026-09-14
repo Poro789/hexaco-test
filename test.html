@@ -299,7 +299,7 @@
 
         /* 雷达图 */
         .radar-card { padding: 24px 20px 12px; margin-bottom: 40px; }
-        .radar-svg { display: block; width: 100%; height: auto; max-width: 500px; margin: 0 auto; }
+        .radar-svg { display: block; width: 100%; height: auto; max-width: 460px; margin: 0 auto; }
         .radar-grid { fill: none; stroke: var(--hairline); stroke-width: 1; }
         .radar-axis { stroke: var(--hairline); stroke-width: 1; }
         .radar-shape { fill: color-mix(in srgb, var(--ink) 8%, transparent); stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
@@ -698,7 +698,7 @@
     const CONFIG = {
         toolId: 'HEXACO-PI-R-100-zh',
         toolName: 'HEXACO 人格测试',
-        toolVersion: '1.0.3',
+        toolVersion: '1.0.4',
         filePrefix: 'HEXACO',
         storagePrefix: 'hexaco',
         /* 外部题本 CSV（与 HTML 同目录，经 GitHub Pages 同源加载） */
@@ -1313,10 +1313,10 @@
 
     function buildRadar(factorScores, factors) {
         const size = 320, cx = size / 2, cy = size / 2, R = 118;
-        // viewBox 比绘图区四周各宽 PAD，用于容纳落在顶点外侧的标签。
-        // 标签字号在 CSS 里是 px（真实像素，不随 viewBox 缩放），
-        // 所以窄屏下 svg 变小时图形缩小而文字保持可读，不会被裁掉。
-        const PAD = 46;
+        // 底部标签基线在 y=317，viewBox 下边界 320 只剩 3 单位；12px 字号的
+        // 下伸部（拉丁字母 descender）约 3px，属贴边侥幸。留 8 单位余量，
+        // 缩放影响很小（412→336 仅缩 4%），但消除裁切风险。
+        const PAD = 8;
         const n = factors.length;
         const angle = i => (-Math.PI / 2) + (i * 2 * Math.PI / n);
         const pt = (i, r) => [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))];
@@ -1801,49 +1801,17 @@
                 '<button data-mode="high">全5</button>' +
                 '<button data-mode="low">全1</button>' +
                 '<button data-mode="lastpage">末页</button>' +
-                '<button data-mode="importcsv" class="wide">导入题本 CSV…</button>' +
-                '<button data-mode="resetcsv" class="wide">恢复内置题本</button>' +
             '</div>' +
-            '<p class="dev-note">前五项直接生成结果页（验证展示/复制/导图）；「末页」验证提交校验；' +
-            '「导入题本 CSV…」读取本地 CSV 并保存（用于测试题本替换流程）；「恢复内置题本」清除并刷新。<br>' +
+            '<p class="dev-note">前五项直接生成结果页（验证展示/复制/导图）；「末页」验证提交校验。<br>' +
             '<span id="devSrc"></span></p>';
         document.body.appendChild(p);
         p.querySelector('.dev-close').addEventListener('click', () => p.classList.remove('show'));
-
-        // 题本 CSV 本地导入（QA：验证题本替换与校验流程）
-        const file = document.createElement('input');
-        file.type = 'file'; file.accept = '.csv,text/csv'; file.style.display = 'none';
-        file.addEventListener('change', () => {
-            const f = file.files && file.files[0];
-            file.value = '';
-            if (!f) return;
-            const rd = new FileReader();
-            rd.onload = () => {
-                const text = String(rd.result);
-                const res = parseItemCsv(text);
-                if (res.ok) {
-                    applyItemBank(res.bank);
-                    markItemsSource('local');
-                    try { localStorage.setItem(ITEMS_CSV_KEY, text); } catch (e) {}
-                    showToast('已导入题本（' + N_ITEMS + ' 题），刷新后仍生效');
-                } else {
-                    showToast('题本 CSV 校验失败：' + res.error);
-                }
-            };
-            rd.readAsText(f, 'utf-8');
-        });
-        p.appendChild(file);
 
         p.querySelectorAll('button[data-mode]').forEach(b => {
             b.addEventListener('click', () => {
                 const m = b.dataset.mode;
                 p.classList.remove('show');
                 if (m === 'lastpage') devLastPage();
-                else if (m === 'importcsv') file.click();
-                else if (m === 'resetcsv') {
-                    try { localStorage.removeItem(ITEMS_CSV_KEY); } catch (e) {}
-                    location.reload();
-                }
                 else devShowResult(m);
             });
         });

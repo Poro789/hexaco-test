@@ -1,0 +1,15 @@
+{
+  "name": "hexaco-test",
+  "version": "1.0.4",
+  "private": true,
+  "description": "HEXACO-PI-R 100 题人格测试（纯前端，GitHub Pages 分发）",
+  "type": "module",
+  "scripts": {
+    "test": "node tools/test_scoring.mjs",
+    "test:smoke": "node tools/test_smoke.mjs",
+    "gen:csv": "node tools/generate_csv.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
