@@ -571,8 +571,8 @@ function section(t) { console.log('— ' + t); }
   // job 依赖链：deploy 必须同时 needs test 与 smoke（冒烟测试也是门禁）
   {
     const jobs = [...yml.replace(/\r\n/g, '\n').matchAll(/^ {2}([A-Za-z][\w-]*):$/gm)].map(m => m[1]);
-    const missing = ['test', 'smoke', 'deploy'].filter(j => !jobs.includes(j));
-    check('E CI 三个 job 齐全', missing.length === 0 || '缺: ' + missing.join(','));
+    const missing = ['test', 'smoke', 'deploy', 'verify'].filter(j => !jobs.includes(j));
+    check('E CI 四个 job 齐全', missing.length === 0 || '缺: ' + missing.join(','));
     const deployIdx = yml.indexOf('  deploy:');
     const needsLine = yml.slice(deployIdx, deployIdx + 400).match(/needs:\s*([^\n]+)/);
     const list = needsLine ? needsLine[1].replace(/[[\]]/g, '').split(',').map(s => s.trim()) : [];
@@ -583,6 +583,22 @@ function section(t) { console.log('— ' + t); }
       .flatMap(m => (m[1].startsWith('[') ? m[1].slice(1, -1).split(',') : [m[1]]).map(s => s.trim()));
     const dangling = allNeeds.filter(j => !jobs.includes(j));
     check('E needs 引用有效', dangling.length === 0 || '悬空: ' + dangling.join(','));
+  }
+
+  // 线上核验：必须挂在部署之后，且不得另写一份发布文件表（清单只能有一个来源）
+  {
+    const verifyIdx = yml.indexOf('  verify:');
+    const vNeeds = verifyIdx < 0 ? '' : ((yml.slice(verifyIdx, verifyIdx + 500).match(/needs:\s*([^\n]+)/) || [])[1] || '');
+    check('E verify needs deploy', vNeeds.includes('deploy'), 'needs=' + (vNeeds.trim() || '无'));
+    check('E verify 跑 tools/test_live.mjs', /run:\s*node tools\/test_live\.mjs/.test(yml));
+    const pkgScripts = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).scripts || {};
+    check('E package.json 有 test:live', pkgScripts['test:live'] === 'node tools/test_live.mjs',
+      'scripts.test:live=' + pkgScripts['test:live']);
+    const liveTool = readFileSync(path.join(root, 'tools/test_live.mjs'), 'utf8');
+    check('E test_live 的清单取自 pages.yml（不重复维护文件表）',
+      liveTool.includes('pages.yml') && liveTool.includes('cp (['));
+    check('E test_live 用 git blob 当期望值（绕开 autocrlf）',
+      liveTool.includes("'show'") && liveTool.includes('HEAD:'));
   }
 
   // action：全部钉到 commit SHA（防 tag 被移动）、带版本注释、主版本不低于 v5
@@ -615,11 +631,15 @@ function section(t) { console.log('— ' + t); }
       `lock=${lock.version}/${((lock.packages || {})[''] || {}).version} pkg=${pkg.version}`);
   }
 
-  // 文档不得与 CI 漂移：README 必须把两组测试都写出来，并指向 AGENTS.md
+  // 文档不得与 CI 漂移：README 与 AGENTS.md 都要写全三条命令，README 还要指向 AGENTS.md
   {
     const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
-    const miss = ['npm test', 'npm run test:smoke', 'AGENTS.md'].filter(k => !readme.includes(k));
-    check('E README 与 CI 同步（两组测试命令 + AGENTS.md 指引）', miss.length === 0 || '缺: ' + miss.join(','));
+    const agents = readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
+    const cmds = ['npm test', 'npm run test:smoke', 'npm run test:live'];
+    const missReadme = cmds.filter(k => !readme.includes(k)).concat(readme.includes('AGENTS.md') ? [] : ['AGENTS.md']);
+    const missAgents = cmds.filter(k => !agents.includes(k));
+    check('E README 与 CI 同步（三条命令 + AGENTS.md 指引）', missReadme.length === 0 || '缺: ' + missReadme.join(','));
+    check('E AGENTS.md 与 CI 同步（三条命令齐全）', missAgents.length === 0 || '缺: ' + missAgents.join(','));
   }
 }
 

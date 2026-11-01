@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node tools/test_scoring.mjs",
     "test:smoke": "node tools/test_smoke.mjs",
+    "test:live": "node tools/test_live.mjs",
     "gen:csv": "node tools/generate_csv.mjs"
   },
   "devDependencies": {

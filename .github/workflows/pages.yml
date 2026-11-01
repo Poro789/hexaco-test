@@ -70,3 +70,17 @@ jobs:
       - name: 部署
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+
+  # 部署成功不等于线上真的换了新版：这一步把线上内容与本次提交逐字节比对，
+  # 抓「CDN 还发旧的」「漏发文件」「部署到了别的路径」。脚本自带重试，Pages 生效延迟不会误报。
+  verify:
+    name: 线上核验（部署后）
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read   # 只读仓库 + 访问公开站点
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: 比对线上内容与本次提交（失败则该次运行标红）
+        run: node tools/test_live.mjs "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"

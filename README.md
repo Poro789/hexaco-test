@@ -18,8 +18,9 @@
 | `.github/workflows/pages.yml` | 测试 + GitHub Pages 部署（push 到 main 即发布） |
 | `AGENTS.md` | 给 AI/维护者的仓库规矩：必跑命令、不可破坏的约定、已知坑 |
 | `tools/generate_csv.mjs` | 从 HTML 内置数据重新生成 CSV |
-| `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单），65 项 |
-| `tools/test_smoke.mjs` | 真实浏览器冒烟测试（Playwright + Chromium：布局、导出、localStorage、404 重定向），52 项 |
+| `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单与门禁），74 项 |
+| `tools/test_smoke.mjs` | 真实浏览器冒烟测试（Playwright + Chromium：布局、导出、localStorage、404 重定向、题干转义），56 项 |
+| `tools/test_live.mjs` | 发布后核验线上：Pages 上的每个文件必须与本次提交逐字节一致（清单取自 `pages.yml`） |
 
 ## 使用方法
 
@@ -85,10 +86,12 @@ python -m http.server 8123
 ```powershell
 npm test              # 无浏览器逻辑自测（需 Node 18+）
 npm run test:smoke    # 真实浏览器冒烟测试（首次需 npx playwright install chromium）
+npm run test:live     # 发布之后跑：线上每个文件必须与本次提交逐字节一致
 npm run gen:csv       # 内置数据 → CSV（仅当改了 HTML 内置题本后）
 ```
 
-CI 是 **test → smoke → deploy 串行门禁**：任一条不通过就不部署（不是并列跑）。
+CI 是 **test → smoke → deploy → verify 串行门禁**：任一条不通过就不部署（不是并列跑）；
+最后那步 verify 就是 `test:live`，它抓的是「测试都绿了但线上还是旧版本 / 漏发文件」这类问题。
 本地只跑 `npm test` 不够——雷达图在窄屏被裁切、PNG/PDF 导出、localStorage 续答这类问题只有冒烟测试能发现。
 
 版本号的唯一真源是 `package.json`，必须与 `test.html` 里的 `CONFIG.toolVersion` 一致（写进导出报告的是后者），

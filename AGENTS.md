@@ -4,13 +4,16 @@ HEXACO-PI-R 100 题纯前端人格测试，GitHub Pages 发布（站点根固定
 取舍标准（用户 2026-10-08 明确，已移除「零构建零依赖」「总量 ≤1GB」两条教条）：
 ① 本地 AI 能把项目改好（可验证、能定位、改完不会静默坏）；② Pages 快速、免费、零费用地发布。
 
-## 改完必须跑，两条都要绿（CI 门禁就是这两条，不绿就不部署）
+## 改完必须跑，前两条都要绿（CI 门禁就是这两条，不绿就不部署）
 
 ```powershell
-npm test            # tools/test_scoring.mjs：无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单），68 项
+npm test            # tools/test_scoring.mjs：无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单与门禁），74 项
 npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览器冒烟（布局 / 导出 / localStorage / 404 重定向 / 转义），56 项
+npm run test:live   # tools/test_live.mjs：push 之后跑——线上 Pages 上的文件必须与 HEAD 逐字节一致（清单取自 pages.yml）
 ```
 
+前两条是部署门禁（CI 里 test → smoke → deploy → verify 串行，verify 就是 test:live）；第三条只在发布后跑，
+本地想手动确认线上也一致时同样跑它。别用「我记得推上去了」代替核验。
 首次跑冒烟需 `npx playwright install chromium`。页面运行期零第三方脚本，Playwright 只在 devDependencies。
 临时脚本和截图放 `test-results/`（已 gitignore，不会上线）。
 
@@ -29,6 +32,10 @@ npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览�
 5. 改了阈值或校验规则，要同步改 `test_scoring.mjs` / `test_smoke.mjs` 的断言——不能只改页面让测试变绿。
 6. 任何外部来源文本（题干、领域名、侧面名）写进 DOM 前必须过 `escapeHtml()`（见 test.html 的转义段），
    因为 README 让用户用 Excel 直接编辑 `items.csv`，题干里出现 `<` 或 `&` 会破坏渲染。
+7. **发布后必须核验线上**：`npm run test:live`（CI 的 verify job 会自动跑一次）。它把 Pages 上每个文件与
+   `git show HEAD:<文件>` 的字节逐字节比对，清单同样取自 pages.yml——所以「漏进清单」「CDN 还发旧的」都会被抓出。
+   期望值走 git blob 而不是工作树：Windows 的 autocrlf 会让工作树文件多 `\r`，直接读文件会假报错。
+   不要往这个脚本里写死色值或文案做断言，那种检查一改就过时。
 
 ## 已知坑
 
@@ -44,4 +51,4 @@ npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览�
 - 窄屏雷达图标签会被裁切（S19/S20 用真实布局守着）：不要改成缩小字号来「修」。
 - 本地预览：`python -m http.server 8123`。直接双击打开（`file://`）时 fetch 不到 `items.csv`，
   会静默走内置兜底并显示 `data-items-source="builtin"`——这是预期行为，不是 bug。
-- CI 里 deploy 需要 `pages: write` + `id-token: write`；test/smoke 两个 job 只该有 `contents: read`。
+- CI 里 deploy 需要 `pages: write` + `id-token: write`；test/smoke/verify 三个 job 只该有 `contents: read`。
