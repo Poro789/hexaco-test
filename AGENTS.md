@@ -7,8 +7,8 @@ HEXACO-PI-R 100 题纯前端人格测试，GitHub Pages 发布（站点根固定
 ## 改完必须跑，两条都要绿（CI 门禁就是这两条，不绿就不部署）
 
 ```powershell
-npm test            # tools/test_scoring.mjs：无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单），65 项
-npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览器冒烟（布局 / 导出 / localStorage / 404 重定向），52 项
+npm test            # tools/test_scoring.mjs：无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单），68 项
+npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览器冒烟（布局 / 导出 / localStorage / 404 重定向 / 转义），56 项
 ```
 
 首次跑冒烟需 `npx playwright install chromium`。页面运行期零第三方脚本，Playwright 只在 devDependencies。
@@ -35,7 +35,12 @@ npm run test:smoke  # tools/test_smoke.mjs：Playwright + Chromium 真实浏览�
 - 欢迎页顶部那行仪器名小字（`#brandMark`）**连点 5 次** = dev 面板（或地址栏加 `#dev`）。改这段文案要同步 README。
 - 配色 token 有三份（`index.html` / `test.html` / `404.html`），改一处必须同步三处。
   小字对比度硬底线 ≥4.5:1：当前 `--faint` 浅色 `#71716a`、暗色 `#8a8a82`；六维色只用于图表，不作为文字色。
+  六维色浅/暗两套要**同色相、同饱和度**，只差明度（暗色为可读性提亮），别把暗色做得比浅色更艳——
+  当前浅 `#5b9a8b #b07c9e #aa8955 #779457 #6e8cb0 #9080b5` / 暗 `#75aea1 #c299b4 #bea67e #a2b988 #8ca3c0 #ab9fc6`。
+  中性面两套同为**暖中性族**（浅色 bg `#f7f7f4`；暗色 bg `#171715`、surface `#1f1f1c`、hairline `#2e2e2a`、
+  hairline-strong `#3c3c37`、accent-soft `#282824`），不要退回偏蓝的冷灰；`theme-color` 要跟 `--bg` 一致。
   test.html 用 `data-theme` + localStorage 持久化，index/404 只跟随 `prefers-color-scheme`（无脚本）。
+- 落地页 `.spec` 与 `.links` 是同一套发丝线列表，行内留白必须同为 18px；两种节奏相接会被读成多一行空行。
 - 窄屏雷达图标签会被裁切（S19/S20 用真实布局守着）：不要改成缩小字号来「修」。
 - 本地预览：`python -m http.server 8123`。直接双击打开（`file://`）时 fetch 不到 `items.csv`，
   会静默走内置兜底并显示 `data-items-source="builtin"`——这是预期行为，不是 bug。

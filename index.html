@@ -21,7 +21,7 @@
     <!-- 内联 SVG favicon：与测试页同一图标，零额外请求 -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5' fill='none' stroke='%231c1c1a' stroke-width='2'/%3E%3Cpolygon points='16,9 22,12.5 20,20 16,23 10,19 12,12' fill='%235b9a8b' fill-opacity='.35' stroke='%235b9a8b' stroke-width='2'/%3E%3C/svg%3E">
     <meta name="theme-color" content="#f7f7f4" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#171715" media="(prefers-color-scheme: dark)">
     <style>
         :root {
             --bg: #f7f7f4;
@@ -38,13 +38,13 @@
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg: #151517;
-                --surface: #1d1d20;
+                --bg: #171715;
+                --surface: #1f1f1c;
                 --ink: #eceae4;
                 --muted: #9c9c94;
                 --faint: #8a8a82;
-                --hairline: #2c2c30;
-                --hairline-strong: #3a3a3f;
+                --hairline: #2e2e2a;
+                --hairline-strong: #3c3c37;
                 --accent: #eceae4;
             }
         }
@@ -112,8 +112,9 @@
         .axis-val { fill: var(--ink); font-size: 12px; font-weight: 600; }
         .hero-chart figcaption { color: var(--faint); font-size: .82rem; margin-top: 10px; }
 
-        /* 量表事实：发丝线分栏，不是一排等大的卡片 */
-        .spec { border-top: 1px solid var(--hairline); padding-bottom: 12px; }
+        /* 量表事实与链接用同一套发丝线节奏（行内 18px 上下留白），
+           否则两种节奏接在一起会被读成「多了一行空行」 */
+        .spec { border-top: 1px solid var(--hairline); }
         .spec > dl > div {
             display: grid; grid-template-columns: 132px 1fr; gap: 4px 24px;
             padding: 18px 0; border-bottom: 1px solid var(--hairline);
@@ -122,10 +123,10 @@
         .spec dd { color: var(--muted); font-size: .92rem; }
         .spec dd b { color: var(--ink); font-weight: 500; }
 
-        .links { padding: 28px 0 8px; }
+        .links { padding: 0 0 24px; }
         .links a {
             display: grid; grid-template-columns: 132px 1fr; gap: 4px 24px;
-            text-decoration: none; padding: 12px 0;
+            text-decoration: none; padding: 18px 0;
             border-bottom: 1px solid var(--hairline);
             transition: color .15s ease;
         }
