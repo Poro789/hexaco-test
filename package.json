@@ -1,6 +1,6 @@
 {
   "name": "hexaco-test",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "HEXACO-PI-R 100 题人格测试（纯前端，GitHub Pages 分发）",
   "type": "module",
