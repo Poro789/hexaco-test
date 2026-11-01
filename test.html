@@ -28,7 +28,7 @@
             --surface: #ffffff;
             --ink: #1c1c1a;
             --muted: #6e6e66;
-            --faint: #9a9a90;
+            --faint: #71716a;
             --hairline: #e7e7e1;
             --hairline-strong: #d8d8d0;
             --accent: #1c1c1a;
@@ -38,7 +38,7 @@
             /* 六维配色：低饱和、明度接近，仅用于图表 */
             --dim-h: #5b9a8b;
             --dim-e: #b07c9e;
-            --dim-x: #c99a5b;
+            --dim-x: #b98c46;
             --dim-a: #8ca86b;
             --dim-c: #6e8cb0;
             --dim-o: #9080b5;
@@ -54,7 +54,7 @@
             --surface: #1d1d20;
             --ink: #eceae4;
             --muted: #9c9c94;
-            --faint: #6f6f68;
+            --faint: #8a8a82;
             --hairline: #2c2c30;
             --hairline-strong: #3a3a3f;
             --accent: #eceae4;
@@ -138,9 +138,10 @@
            .screen { display:none }，导致切屏后欢迎页仍然显示、挡住测试页 */
         #welcome.active { display: grid; place-items: center; }
         .welcome-inner { text-align: center; padding: 40px 0; }
+        /* 仪器名，不是眉标：不做大字距全大写；同时是 dev 入口的连点目标 */
         .brand-mark {
-            font-size: .78rem; letter-spacing: .32em; text-transform: uppercase;
-            color: var(--faint); font-weight: 500; margin-bottom: 28px;
+            font-size: .82rem; letter-spacing: .02em;
+            color: var(--faint); font-weight: 500; margin-bottom: 22px;
         }
         .welcome-title {
             font-size: clamp(2.6rem, 9vw, 4.4rem);
@@ -149,7 +150,6 @@
             line-height: 1.05;
             margin-bottom: 20px;
         }
-        .welcome-title b { font-weight: 500; }
         .welcome-sub { color: var(--muted); font-size: clamp(1rem, 3vw, 1.15rem); margin-bottom: 8px; }
         .welcome-meta {
             display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center;
@@ -277,10 +277,6 @@
         /* ---------- 结果页 ---------- */
         #result .wrap { padding-top: 56px; padding-bottom: 80px; }
         .result-head { text-align: center; margin-bottom: 44px; }
-        .result-eyebrow {
-            font-size: .76rem; letter-spacing: .28em; text-transform: uppercase;
-            color: var(--faint); font-weight: 500; margin-bottom: 12px;
-        }
         .result-title { font-size: clamp(1.8rem, 5vw, 2.4rem); font-weight: 300; letter-spacing: .02em; }
         .result-time { color: var(--faint); font-size: .85rem; margin-top: 10px; }
 
@@ -291,8 +287,9 @@
             box-shadow: var(--shadow);
         }
 
+        /* 分区标题就是普通小字，不做全大写大字距 */
         .section-label {
-            font-size: .78rem; letter-spacing: .16em; text-transform: uppercase;
+            font-size: .84rem;
             color: var(--faint); font-weight: 500;
             margin: 0 0 16px 2px;
         }
@@ -439,11 +436,11 @@
     <!-- 欢迎页 -->
     <section class="screen active" id="welcome">
         <div class="wrap welcome-inner">
-            <p class="brand-mark" id="brandMark">HEXACO · PI-R</p>
-            <h1 class="welcome-title">六维<b>人格</b>测试</h1>
+            <p class="brand-mark" id="brandMark">HEXACO-PI-R 简短版（100 题）</p>
+            <h1 class="welcome-title">六维人格测试</h1>
             <p class="welcome-sub">用 <span id="welcomeCount">100</span> 道题，看清你的六个侧面</p>
             <div class="welcome-meta">
-                <span>约 20 分钟</span><span>无需注册</span><span>数据不出本机</span>
+                <span>约 15–20 分钟</span><span>无需注册</span><span>数据不出本机</span>
             </div>
             <div class="welcome-actions" id="welcomeActions">
                 <button class="btn btn-primary" id="startBtn">开始测试</button>
@@ -482,7 +479,6 @@
     <section class="screen" id="result">
         <div class="wrap" id="resultBody">
             <div class="result-head">
-                <p class="result-eyebrow">Your Profile</p>
                 <h2 class="result-title">你的六维人格画像</h2>
                 <p class="result-time" id="resultTime"></p>
             </div>
