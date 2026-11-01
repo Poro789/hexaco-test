@@ -1079,6 +1079,15 @@
     /* ============================================================
        8. 渲染与导航
        ============================================================ */
+    /* 题干文本来自 items.csv / localStorage 导入，README 让用户用 Excel 直接编辑，
+       里面出现 < & " ' 会破坏渲染（甚至吞掉后面的题目），进 DOM 前必须转义。
+       领域名与侧面名不在此列：它们只作为别名映射到内置常量，显示用内置名。 */
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
+
     function renderPage() {
         const list = document.getElementById('questionList');
         list.innerHTML = '';
@@ -1103,7 +1112,7 @@
             }
 
             el.innerHTML =
-                '<p class="q-text"><span class="q-num tnum">' + num + '</span><span>' + questions[i] + '</span></p>' +
+                '<p class="q-text"><span class="q-num tnum">' + num + '</span><span>' + escapeHtml(questions[i]) + '</span></p>' +
                 '<div class="scale" role="radiogroup" aria-label="第' + num + '题">' + dots + '</div>' +
                 '<div class="scale-ends"><span>← ' + CONFIG.anchorLow + '</span><span>' + CONFIG.anchorHigh + ' →</span></div>' +
                 '<p class="scale-picked" data-picked>' + (answers[i] > 0 ? optionLabels[answers[i]-1] : '') + '</p>';

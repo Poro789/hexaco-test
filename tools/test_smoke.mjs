@@ -339,6 +339,35 @@ try {
       await ctx.close();
     }
   }
+
+  /* ---------------- 10. 题干含 HTML 特殊字符：必须按字面渲染 ---------------- */
+  {
+    section('10: 题干转义');
+    // 题本允许用户用 Excel 编辑，题干里出现 < > & " 时不得被当成 HTML 解析。
+    // 阻断 items.csv 请求，强制走「本地导入」这条支路，才能注入自定义题干。
+    const raw = (await readFile(path.join(root, 'items.csv'), 'utf8')).replace(/^\uFEFF/, '');
+    const lines = raw.split(/\r?\n/);
+    const NASTY = '测试<b>标签</b> & 引号"双"与 \'单\' 以及 1<2 应原样显示';
+    const cols = lines[1].split(',');
+    if (cols.length !== 5) {
+      check('S44 题本首行可解析', false, cols.length + ' 列: ' + lines[1]);
+    } else {
+      cols[1] = '"' + NASTY.replace(/"/g, '""') + '"';
+      lines[1] = cols.join(',');
+      const { ctx, page } = await newPage();
+      await page.route('**/items.csv', r => r.abort());
+      await page.addInitScript(csv => localStorage.setItem('hexaco_items_csv_v1', csv), lines.join('\r\n'));
+      await page.goto(base + '/test.html', { waitUntil: 'networkidle' });
+      check('S44 走本地导入题本', (await page.getAttribute('html', 'data-items-source')) === 'local');
+      await page.click('#startBtn');
+      await page.waitForSelector('#test.active');
+      const shown = (await page.textContent('.q-text')).trim();
+      check('S45 题干按字面显示（含 < > & " \'）', shown.includes(NASTY), shown.slice(0, 90));
+      check('S46 题干没有被解析成 HTML 标签', await page.locator('.q-text b, .q-text i').count() === 0);
+      check('S47 该页仍是 5 题（未被坏题干吞掉）', await page.locator('#questionList .question').count() === 5);
+      await ctx.close();
+    }
+  }
 } finally {
   await browser.close();
   server.close();

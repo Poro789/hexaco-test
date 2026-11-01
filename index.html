@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="HEXACO 人格测试（HEXACO-PI-R 100 题）在线版 —— 零依赖、无追踪；作答数据只保存在你的浏览器，不上传任何服务器。">
-    <title>HEXACO 人格测试（100 题）· 在线版</title>
+    <meta name="description" content="HEXACO 人格测试：基于 HEXACO-PI-R 100 题自评量表，测出诚实-谦逊、情绪性、外向性、宜人性、尽责性、经验开放性六个领域与 24 个侧面的分数。作答只保存在你的浏览器里。">
+    <title>HEXACO 人格测试（100 题）</title>
 
-    <!-- 分享卡片（微信/Telegram/X 等按 og: 抓取；无 og:image 时多数平台退化为纯文字卡片） -->
+    <!-- 分享卡片 -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="HEXACO 人格测试">
-    <meta property="og:title" content="HEXACO 人格测试（100 题）· 在线版">
-    <meta property="og:description" content="六大人格维度、24 个侧面、雷达图与 PDF/PNG 导出。零依赖、无追踪，作答数据只保存在你的浏览器。">
+    <meta property="og:title" content="HEXACO 人格测试（100 题）">
+    <meta property="og:description" content="六个领域、24 个侧面的自评量表：计分与官方手册逐位一致，雷达图与 PDF/PNG 导出，数据不出本机。">
     <meta property="og:url" content="https://poro789.github.io/hexaco-test/">
     <meta property="og:locale" content="zh_CN">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="HEXACO 人格测试（100 题）· 在线版">
-    <meta name="twitter:description" content="六大人格维度、24 个侧面、雷达图与 PDF/PNG 导出。零依赖、无追踪，数据不出本机。">
+    <meta name="twitter:title" content="HEXACO 人格测试（100 题）">
+    <meta name="twitter:description" content="六个领域、24 个侧面的自评量表：计分与官方手册逐位一致，雷达图与 PDF/PNG 导出，数据不出本机。">
 
-    <!-- 内联 SVG favicon：六轴雷达轮廓，零额外请求 -->
+    <!-- 内联 SVG favicon：与测试页同一图标，零额外请求 -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5' fill='none' stroke='%231c1c1a' stroke-width='2'/%3E%3Cpolygon points='16,9 22,12.5 20,20 16,23 10,19 12,12' fill='%235b9a8b' fill-opacity='.35' stroke='%235b9a8b' stroke-width='2'/%3E%3C/svg%3E">
     <meta name="theme-color" content="#f7f7f4" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)">
@@ -31,19 +32,8 @@
             --hairline: #e7e7e1;
             --hairline-strong: #d8d8d0;
             --accent: #1c1c1a;
-            --accent-soft: #f0efe9;
-
-            /* 六维配色（与测试页一致） */
-            --dim-h: #5b9a8b;
-            --dim-e: #b07c9e;
-            --dim-x: #b98c46;
-            --dim-a: #8ca86b;
-            --dim-c: #6e8cb0;
-            --dim-o: #9080b5;
-
             --font: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
-            --r: 12px;
-            --page-w: 720px;
+            --page-w: 880px;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -56,13 +46,6 @@
                 --hairline: #2c2c30;
                 --hairline-strong: #3a3a3f;
                 --accent: #eceae4;
-                --accent-soft: #26262a;
-                --dim-h: #6fb3a3;
-                --dim-e: #c795b4;
-                --dim-x: #d9ac6f;
-                --dim-a: #a3bd82;
-                --dim-c: #85a3c7;
-                --dim-o: #a698cc;
             }
         }
 
@@ -71,177 +54,211 @@
             font-family: var(--font);
             background: var(--bg);
             color: var(--ink);
-            line-height: 1.7;
+            line-height: 1.75;
+            font-weight: 400;
             -webkit-font-smoothing: antialiased;
         }
-        .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+        a { color: inherit; }
+        .wrap { max-width: var(--page-w); margin: 0 auto; padding: 0 28px; }
 
-        .wrap { max-width: var(--page-w); margin: 0 auto; padding: 0 24px; }
-
-        /* ---------- 页眉 ---------- */
-        header {
-            padding: 40px 0 8px;
-            display: flex;
-            align-items: baseline;
-            gap: 10px;
-        }
-        header .brand { font-weight: 600; letter-spacing: .02em; }
-        header .tag {
-            font-size: 12px;
-            color: var(--faint);
+        /* 顶栏 */
+        header { display: flex; align-items: center; gap: 14px; padding: 26px 0; }
+        .brand { font-weight: 600; font-size: 1rem; letter-spacing: .01em; }
+        .tag {
+            font-size: .8rem; color: var(--muted);
             border: 1px solid var(--hairline-strong);
-            border-radius: 999px;
-            padding: 1px 10px;
-            white-space: nowrap;
+            border-radius: 999px; padding: 2px 11px;
         }
 
-        /* ---------- 主区 ---------- */
-        main { padding-bottom: 48px; }
-
-        .hero { padding: 40px 0 8px; }
-        .hero h1 {
-            font-size: 30px;
-            font-weight: 650;
+        /* 主区：左边把这份量表讲清楚，右边就是它最有代表性的东西——六轴图 */
+        .hero {
+            display: grid;
+            grid-template-columns: 1.05fr .95fr;
+            align-items: center;
+            gap: 56px;
+            padding: 44px 0 64px;
+        }
+        h1 {
+            font-size: clamp(2.1rem, 5.4vw, 3.1rem);
+            font-weight: 300;
+            line-height: 1.2;
             letter-spacing: .01em;
-            line-height: 1.3;
+            margin-bottom: 22px;
         }
-        .hero p {
-            margin-top: 14px;
-            color: var(--muted);
-            font-size: 15px;
-        }
+        .lede { color: var(--muted); font-size: 1.02rem; margin-bottom: 34px; max-width: 46ch; }
 
         .cta {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 26px;
-            background: var(--accent);
-            color: var(--bg);
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 600;
-            padding: 13px 34px;
-            border-radius: 999px;
-            transition: transform .15s ease, opacity .15s ease;
+            display: inline-block; text-decoration: none;
+            background: var(--accent); color: var(--bg);
+            font-size: 1.05rem; font-weight: 500;
+            padding: 15px 40px; border-radius: 999px;
+            transition: transform .15s ease, opacity .2s ease;
         }
-        .cta:hover { transform: translateY(-1px); opacity: .92; }
-        .cta .arrow { transition: transform .15s ease; }
-        .cta:hover .arrow { transform: translateX(3px); }
-        .cta-note { margin-top: 10px; font-size: 13px; color: var(--faint); }
+        .cta:hover { transform: translateY(-1px); opacity: .9; }
+        .cta:active { transform: translateY(1px); }
+        .cta-note { color: var(--faint); font-size: .88rem; margin-top: 14px; }
 
-        /* ---------- 六维 ---------- */
-        .dims { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 30px; }
-        .dim {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            font-size: 13px;
-            color: var(--muted);
-            border: 1px solid var(--hairline);
-            background: var(--surface);
-            border-radius: 999px;
-            padding: 4px 12px;
+        /* 示例雷达图：几何与样式跟 test.html 结果页那张一致 */
+        .hero-chart { text-align: center; }
+        .hero-chart svg { width: 100%; max-width: 400px; height: auto; }
+        .ring { fill: none; stroke: var(--hairline); stroke-width: 1; }
+        .spoke { stroke: var(--hairline); stroke-width: 1; }
+        .shape {
+            fill: color-mix(in srgb, var(--ink) 8%, transparent);
+            stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round;
         }
-        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .vertex { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+        .axis-label { fill: var(--muted); font-size: 12px; font-weight: 500; }
+        .axis-val { fill: var(--ink); font-size: 12px; font-weight: 600; }
+        .hero-chart figcaption { color: var(--faint); font-size: .82rem; margin-top: 10px; }
 
-        /* ---------- 特性卡片 ---------- */
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-top: 36px;
+        /* 量表事实：发丝线分栏，不是一排等大的卡片 */
+        .spec { border-top: 1px solid var(--hairline); padding-bottom: 12px; }
+        .spec > dl > div {
+            display: grid; grid-template-columns: 132px 1fr; gap: 4px 24px;
+            padding: 18px 0; border-bottom: 1px solid var(--hairline);
         }
-        @media (max-width: 620px) { .cards { grid-template-columns: 1fr; } }
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r);
-            padding: 16px 16px 14px;
-        }
-        .card h2 { font-size: 14px; font-weight: 650; }
-        .card p { font-size: 13px; color: var(--muted); margin-top: 6px; }
+        .spec dt { font-size: .92rem; font-weight: 500; }
+        .spec dd { color: var(--muted); font-size: .92rem; }
+        .spec dd b { color: var(--ink); font-weight: 500; }
 
-        /* ---------- 链接区 ---------- */
-        .links {
-            margin-top: 40px;
-            border-top: 1px solid var(--hairline);
-            padding-top: 20px;
+        .links { padding: 28px 0 8px; }
+        .links a {
+            display: grid; grid-template-columns: 132px 1fr; gap: 4px 24px;
+            text-decoration: none; padding: 12px 0;
+            border-bottom: 1px solid var(--hairline);
+            transition: color .15s ease;
         }
-        .links h2 { font-size: 14px; font-weight: 650; color: var(--muted); }
-        .links ul { list-style: none; margin-top: 10px; }
-        .links li { font-size: 14px; padding: 6px 0; }
-        .links a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--hairline-strong); transition: border-color .15s; }
-        .links a:hover { border-color: var(--ink); }
-        .links .desc { color: var(--faint); font-size: 13px; margin-left: 8px; }
+        .links a:hover { color: var(--muted); }
+        .links .t { font-size: .92rem; font-weight: 500; }
+        .links .d { color: var(--faint); font-size: .9rem; }
 
-        /* ---------- 页脚 ---------- */
         footer {
-            border-top: 1px solid var(--hairline);
-            padding: 18px 0 32px;
-            font-size: 12px;
-            color: var(--faint);
+            text-align: center; color: var(--faint);
+            font-size: .8rem; padding: 56px 28px 44px; line-height: 1.8;
+        }
+        footer .disclaimer { font-style: italic; }
+
+        @media (max-width: 780px) {
+            .wrap { padding: 0 20px; }
+            .hero { grid-template-columns: 1fr; gap: 36px; padding: 24px 0 44px; }
+            .hero-chart { order: 2; }
+            .hero-chart svg { max-width: 320px; }
+            .spec > dl > div, .links a { grid-template-columns: 1fr; gap: 2px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
         }
     </style>
 </head>
+
 <body>
     <div class="wrap">
         <header>
-            <span class="brand">HEXACO · 人格测试</span>
-            <span class="tag">HEXACO-PI-R · 100 题</span>
+            <span class="brand">HEXACO 人格测试</span>
+            <span class="tag">100 题自评量表</span>
         </header>
 
         <main>
             <section class="hero">
-                <h1>测一测你的 HEXACO 人格画像</h1>
-                <p>
-                    基于 HEXACO-PI-R 100 题自评量表的评分工具：六大人格维度、
-                    24 个侧面、雷达图与 PDF/PNG 结果导出。零依赖、无追踪，
-                    作答数据只保存在你自己的浏览器里，不经过任何服务器。
-                </p>
-                <a class="cta" href="test.html">
-                    开始测试 <span class="arrow" aria-hidden="true">→</span>
-                </a>
-                <div class="cta-note">100 题 · 5 点计分 · 约 15–20 分钟；中途关闭页面，下次打开可继续作答。</div>
-
-                <div class="dims" aria-label="测量维度">
-                    <span class="dim"><span class="dot" style="background:var(--dim-h)"></span>诚实-谦逊</span>
-                    <span class="dim"><span class="dot" style="background:var(--dim-e)"></span>情绪性</span>
-                    <span class="dim"><span class="dot" style="background:var(--dim-x)"></span>外向性</span>
-                    <span class="dim"><span class="dot" style="background:var(--dim-a)"></span>宜人性</span>
-                    <span class="dim"><span class="dot" style="background:var(--dim-c)"></span>尽责性</span>
-                    <span class="dim"><span class="dot" style="background:var(--dim-o)"></span>经验开放性</span>
+                <div>
+                    <h1>六个领域，24 个侧面，<br>100 道题</h1>
+                    <p class="lede">
+                        HEXACO-PI-R 简短版自评量表。对 100 个陈述按 1–5 分作答，
+                        得到诚实-谦逊、情绪性、外向性、宜人性、尽责性与经验开放性
+                        六个领域，以及它们下面 24 个侧面的分数。
+                    </p>
+                    <a class="cta" href="test.html">开始测试</a>
+                    <p class="cta-note">约 15–20 分钟，中途关掉页面也能接着答。</p>
                 </div>
+
+                <figure class="hero-chart">
+                    <!-- 示例数值，不是任何人的结果。几何与 test.html 结果页的雷达图同一算法 -->
+                    <svg viewBox="0 0 360 336" role="img" aria-label="示例雷达图：六个领域的得分形状，每轴 1 到 5 分">
+                        <polygon class="ring" points="180,145.6 199.4,156.8 199.4,179.2 180,190.4 160.6,179.2 160.6,156.8" />
+                        <polygon class="ring" points="180,123.2 218.8,145.6 218.8,190.4 180,212.8 141.2,190.4 141.2,145.6" />
+                        <polygon class="ring" points="180,100.8 238.2,134.4 238.2,201.6 180,235.2 121.8,201.6 121.8,134.4" />
+                        <polygon class="ring" points="180,78.4 257.6,123.2 257.6,212.8 180,257.6 102.4,212.8 102.4,123.2" />
+                        <polygon class="ring" points="180,56 277,112 277,224 180,280 83,224 83,112" />
+                        <g class="spoke">
+                            <line x1="180" y1="168" x2="180" y2="56" />
+                            <line x1="180" y1="168" x2="277" y2="112" />
+                            <line x1="180" y1="168" x2="277" y2="224" />
+                            <line x1="180" y1="168" x2="180" y2="280" />
+                            <line x1="180" y1="168" x2="83" y2="224" />
+                            <line x1="180" y1="168" x2="83" y2="112" />
+                        </g>
+                        <polygon class="shape" points="180,96.3 234.3,136.6 249.8,208.3 180,235.2 100.5,213.9 106.3,125.4" />
+                        <g class="vertex">
+                            <circle cx="180" cy="96.3" r="3.5" />
+                            <circle cx="234.3" cy="136.6" r="3.5" />
+                            <circle cx="249.8" cy="208.3" r="3.5" />
+                            <circle cx="180" cy="235.2" r="3.5" />
+                            <circle cx="100.5" cy="213.9" r="3.5" />
+                            <circle cx="106.3" cy="125.4" r="3.5" />
+                        </g>
+                        <g text-anchor="middle">
+                            <text class="axis-label" x="180" y="26">诚谦</text>
+                            <text class="axis-val" x="180" y="42">3.2</text>
+                            <text class="axis-label" x="307" y="94">情绪</text>
+                            <text class="axis-val" x="307" y="110">2.8</text>
+                            <text class="axis-label" x="307" y="236">外向</text>
+                            <text class="axis-val" x="307" y="252">3.6</text>
+                            <text class="axis-label" x="180" y="304">宜人</text>
+                            <text class="axis-val" x="180" y="320">3.0</text>
+                            <text class="axis-label" x="53" y="236">尽责</text>
+                            <text class="axis-val" x="53" y="252">4.1</text>
+                            <text class="axis-label" x="53" y="94">开放</text>
+                            <text class="axis-val" x="53" y="110">3.8</text>
+                        </g>
+                    </svg>
+                    <figcaption>结果就是这张图：每轴 1–5 分，上面是示例数值</figcaption>
+                </figure>
             </section>
 
-            <section class="cards">
-                <div class="card">
-                    <h2>数据不出本机</h2>
-                    <p>页面无第三方请求、无账号、无上传；作答进度存在浏览器 localStorage 中，关掉浏览器也不会丢。</p>
-                </div>
-                <div class="card">
-                    <h2>评分与官方手册逐位一致</h2>
-                    <p>题目顺序、24 侧面 × 4 题计分键、50 个反向计分项与官方 HEXACO-PI-R 评分手册一致。</p>
-                </div>
-                <div class="card">
-                    <h2>可导出、可复核</h2>
-                    <p>结果页含雷达图与各维度得分，可导出 PDF / PNG；报告内注明参照统计为英语样本描述统计，非中国常模。</p>
-                </div>
+            <section class="spec">
+                <dl>
+                    <div>
+                        <dt>计分依据</dt>
+                        <dd>题目顺序、24 侧面 × 4 题、<b>50 个反向计分项</b>与官方 HEXACO-PI-R 评分手册逐位一致。分数是原始计算结果，不含解释或评价，也未换算常模。</dd>
+                    </div>
+                    <div>
+                        <dt>数据在哪</dt>
+                        <dd>没有账号、没有服务器，页面不加载任何第三方脚本。作答只存进<b>你自己的浏览器</b>，关掉也不会丢；结果可导出 PNG 图片与 PDF 报告。</dd>
+                    </div>
+                    <div>
+                        <dt>怎么读分数</dt>
+                        <dd>报告里的相对位置参考 Lee &amp; Ashton (2018) 的描述统计，那是<b>英语样本</b>、不是中国常模，只能当参照。</dd>
+                    </div>
+                    <div>
+                        <dt>题本可核对</dt>
+                        <dd>100 道题与评分结构都在公开的 <b>items.csv</b> 里，用 Excel 打开就能逐题比对。</dd>
+                    </div>
+                </dl>
             </section>
 
             <section class="links">
-                <h2>代码与题本</h2>
-                <ul>
-                    <li><a href="https://github.com/Poro789/hexaco-test" target="_blank" rel="noopener">GitHub 仓库</a><span class="desc">源码、README 与维护说明（MIT 协议）</span></li>
-                    <li><a href="https://github.com/Poro789/hexaco-test/releases" target="_blank" rel="noopener">版本记录</a><span class="desc">Release 页，含历次题本修订说明</span></li>
-                    <li><a href="items.csv" target="_blank" rel="noopener">外部题本 CSV</a><span class="desc">100 题 + 评分结构，Excel 可直接编辑</span></li>
-                </ul>
+                <a href="https://github.com/Poro789/hexaco-test" target="_blank" rel="noopener">
+                    <span class="t">GitHub 仓库</span>
+                    <span class="d">源码、README 与维护说明（MIT 协议）</span>
+                </a>
+                <a href="https://github.com/Poro789/hexaco-test/releases" target="_blank" rel="noopener">
+                    <span class="t">版本记录</span>
+                    <span class="d">Release 页，含历次题本修订说明</span>
+                </a>
+                <a href="items.csv">
+                    <span class="t">外部题本 CSV</span>
+                    <span class="d">100 题与评分结构，Excel 可直接编辑</span>
+                </a>
             </section>
         </main>
-
-        <footer>
-            结果仅供自我了解参考，本工具不能替代专业心理评估。
-        </footer>
     </div>
+
+    <footer>
+        <p>基于 HEXACO-PI-R 100 题量表</p>
+        <p class="disclaimer">结果仅供自我了解参考，本工具不能替代专业心理评估。</p>
+    </footer>
 </body>
+
 </html>
