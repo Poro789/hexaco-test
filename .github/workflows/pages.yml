@@ -9,13 +9,17 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# 官方 action 全部钉到 commit SHA（防上游 tag 被移动），版本注释供 tools/test_scoring.mjs 校验
 jobs:
   test:
     name: 逻辑自测
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # 只需读仓库
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - name: 运行自测（失败则不部署）
@@ -25,9 +29,12 @@ jobs:
     name: 浏览器冒烟测试
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read   # 只需读仓库
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
@@ -41,23 +48,25 @@ jobs:
     name: 部署到 GitHub Pages
     needs: [test, smoke]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
+      contents: read    # 读仓库
       pages: write      # 部署到 Pages
       id-token: write   # 校验部署来源
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: 组装站点目录（显式清单，排除 .doc 原始材料）
         run: |
           mkdir -p _site
           cp index.html test.html items.csv 404.html LICENSE _site/
-      - uses: actions/configure-pages@v6
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
       - name: 上传站点内容
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: _site
       - name: 部署
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

@@ -585,12 +585,41 @@ function section(t) { console.log('— ' + t); }
     check('E needs 引用有效', dangling.length === 0 || '悬空: ' + dangling.join(','));
   }
 
-  // action 版本：v4 及更早的官方 action 仍跑在已弃用的 Node 20 上，会产生告警
+  // action：全部钉到 commit SHA（防 tag 被移动）、带版本注释、主版本不低于 v5
+  // （v4 及更早的官方 action 仍跑在已弃用的 Node 20 上，会产生告警）
   {
-    const uses = [...yml.matchAll(/uses:\s*(actions\/[\w-]+)@v(\d+)/g)];
-    const stale = uses.filter(([, , v]) => +v < 5).map(([, n, v]) => `${n}@v${v}`);
-    check('E 官方 action 不低于 v5（避开 Node20 弃用告警）',
-      stale.length === 0 || '偏旧: ' + stale.join(','));
+    const lines = yml.split(/\r?\n/).filter(l => /uses:/.test(l));
+    const problems = [];
+    for (const l of lines) {
+      const m = l.match(/uses:\s*([\w./-]+)@(v(\d+)|([0-9a-f]{40}))/);
+      if (!m) { problems.push('无法解析: ' + l.trim()); continue; }
+      const name = m[1];
+      const major = m[3] ? +m[3] : +((l.match(/#\s*v(\d+)/) || [])[1] || 0);
+      if (!m[4]) problems.push(name + ' 未钉到 commit SHA');
+      else if (!/#\s*v\d+/.test(l)) problems.push(name + ' 的 SHA 钉定缺版本注释');
+      if (major < 5) problems.push(name + ' 主版本偏旧(v' + major + '，会报 Node20 弃用)');
+    }
+    check('E CI action 钉到 SHA 且版本注释齐全、不低于 v5',
+      problems.length === 0 || problems.join(' | '));
+  }
+
+  // 版本唯一真源：package.json === test.html 的 CONFIG.toolVersion（写进导出报告）=== package-lock
+  {
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+    const inPage = (src['test.html'].match(/toolVersion:\s*'([^']+)'/) || [])[1];
+    check('E 版本唯一真源（package.json === CONFIG.toolVersion）',
+      inPage === pkg.version || `pkg=${pkg.version} page=${inPage}`);
+    check('E package-lock 与 package.json 同步',
+      (lock.version === pkg.version && ((lock.packages || {})[''] || {}).version === pkg.version) ||
+      `lock=${lock.version}/${((lock.packages || {})[''] || {}).version} pkg=${pkg.version}`);
+  }
+
+  // 文档不得与 CI 漂移：README 必须把两组测试都写出来，并指向 AGENTS.md
+  {
+    const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
+    const miss = ['npm test', 'npm run test:smoke', 'AGENTS.md'].filter(k => !readme.includes(k));
+    check('E README 与 CI 同步（两组测试命令 + AGENTS.md 指引）', miss.length === 0 || '缺: ' + miss.join(','));
   }
 }
 

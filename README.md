@@ -1,7 +1,8 @@
 # HEXACO 人格测试（100 题 · GitHub Pages）
 
-基于 HEXACO-PI-R 100 题自评量表的纯前端评分工具：零依赖、零构建、零追踪，
+基于 HEXACO-PI-R 100 题自评量表的纯前端评分工具：页面运行期零依赖、零构建、零追踪，
 作答数据只保存在本机浏览器（localStorage），不上传任何服务器。
+（开发期用 Playwright 做真实浏览器冒烟测试，只进 devDependencies，不影响线上页面。）
 
 **线上入口**：<https://poro789.github.io/hexaco-test/>
 
@@ -15,8 +16,10 @@
 | `404.html` | Pages 自定义 404（站名固定为 `/hexaco-test/`，不依赖相对路径） |
 | `Chinese_self100_simplified.doc` / `English_self100.doc` | 参照题本（原始材料，勿用于计分，**不发布到线上**） |
 | `.github/workflows/pages.yml` | 测试 + GitHub Pages 部署（push 到 main 即发布） |
+| `AGENTS.md` | 给 AI/维护者的仓库规矩：必跑命令、不可破坏的约定、已知坑 |
 | `tools/generate_csv.mjs` | 从 HTML 内置数据重新生成 CSV |
-| `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 流程） |
+| `tools/test_scoring.mjs` | 无浏览器逻辑自测（计分 / CSV / 回退 / 页面元数据 / CI 清单），65 项 |
+| `tools/test_smoke.mjs` | 真实浏览器冒烟测试（Playwright + Chromium：布局、导出、localStorage、404 重定向），52 项 |
 
 ## 使用方法
 
@@ -67,7 +70,7 @@ python -m http.server 8123
 
 ## Dev 模式（QA 用，真实用户不可见）
 
-入口：欢迎页顶部小字（HEXACO · PI-R）**连点 5 次**，或地址栏加 `#dev`。
+入口：欢迎页顶部那行仪器名小字（当前文案「HEXACO-PI-R 简短版（100 题）」）**连点 5 次**，或地址栏加 `#dev`。
 
 | 按钮 | 作用 |
 |---|---|
@@ -80,13 +83,18 @@ python -m http.server 8123
 ## 自检与发布
 
 ```powershell
-node tools/test_scoring.mjs     # 逻辑自测（需 Node 18+）
-node tools/generate_csv.mjs     # 内置数据 → CSV（仅当改了 HTML 内置题本后）
+npm test              # 无浏览器逻辑自测（需 Node 18+）
+npm run test:smoke    # 真实浏览器冒烟测试（首次需 npx playwright install chromium）
+npm run gen:csv       # 内置数据 → CSV（仅当改了 HTML 内置题本后）
 ```
 
-`test_scoring.mjs` 已接入 CI：**测试不通过则不部署**。
+CI 是 **test → smoke → deploy 串行门禁**：任一条不通过就不部署（不是并列跑）。
+本地只跑 `npm test` 不够——雷达图在窄屏被裁切、PNG/PDF 导出、localStorage 续答这类问题只有冒烟测试能发现。
 
-发布只需 push 到 `main`；工作流会先跑自测，再把站点文件上传到 Pages。
+版本号的唯一真源是 `package.json`，必须与 `test.html` 里的 `CONFIG.toolVersion` 一致（写进导出报告的是后者），
+并且与 `package-lock.json` 同步；`test_scoring.mjs` 会断言这三者，不一致直接红。完整改版本动作见 `AGENTS.md`。
+
+发布只需 push 到 `main`；工作流会先跑两组测试，再把站点文件上传到 Pages。
 发布清单是显式的（见 `pages.yml`），两个 `.doc` 原始材料不会进入线上目录。
 
 ## 数据与隐私
